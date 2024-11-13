@@ -8,7 +8,7 @@ from google.cloud import secretmanager
 
 def access_secret_version(secret_id, version_id="latest"):
     client = secretmanager.SecretManagerServiceClient()
-    name = f"projects/harkerbot-436722/secrets/{secret_id}/versions/{version_id}"
+    name = f"projects/pdfextractor-441603/secrets/{secret_id}/versions/{version_id}"
     response = client.access_secret_version(request={"name": name})
     return response.payload.data.decode("UTF-8")
 
@@ -36,7 +36,7 @@ def extract_invoice():
             
         # Send to Claude for invoice number extraction
         prompt = """Please analyze this PDF invoice and extract all invoice numbers.
-        Only return the invoice numbers, nothing else."""
+        Only return the invoice numbers as a comma separated list, nothing else."""
         
         completion = claude.messages.create(
             model="claude-3-opus-20240229",
