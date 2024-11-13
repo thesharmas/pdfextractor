@@ -4,7 +4,17 @@ import base64
 import anthropic
 import os
 from google.cloud import secretmanager
+from dotenv import load_dotenv
 
+
+def get_api_key():
+    api_key = os.getenv('ANTHROPIC_API_KEY')
+    
+    if not api_key:
+        # Fallback to Secret Manager if not found in environment
+        return access_secret_version("anthropic-api-key", "latest")
+        
+    return api_key
 
 def access_secret_version(secret_id, version_id="latest"):
     client = secretmanager.SecretManagerServiceClient()
@@ -13,63 +23,50 @@ def access_secret_version(secret_id, version_id="latest"):
     return response.payload.data.decode("UTF-8")
 
 app = Flask(__name__)
-anthropic_api_key = access_secret_version("anthropic-api-key", "latest")
-claude = anthropic.Client(anthropic_api_key)
+api_key = get_api_key()
+claude = anthropic.Client(api_key=api_key)
 
 @app.route('/extract-invoice', methods=['POST'])
 def extract_invoice():
     try:
-        # Get URL from request
-        data = request.get_json()
-        if not data or 'pdf_url' not in data:
-            return jsonify({'error': 'PDF URL is required'}), 400
-            
-        pdf_url = data['pdf_url']
+        pdf_url = request.json.get('pdf_url')
+        debug_mode = request.json.get('debug', False)
         
-        # Download PDF from URL
-        response = requests.get(pdf_url)
-        if response.status_code != 200:
-            return jsonify({'error': 'Failed to download PDF'}), 400
-            
-        # Convert PDF to base64
-        pdf_base64 = base64.b64encode(response.content).decode('utf-8')
-            
-        # Send to Claude for invoice number extraction
-        prompt = """Please analyze this PDF invoice and extract all invoice numbers.
-        Only return the invoice numbers as a comma separated list, nothing else."""
+        prompt = f"""Please list all invoice numbers from this PDF.
         
-        completion = claude.messages.create(
+        First, describe what you see in the document.
+        Then, explain how you identify invoice numbers.
+        Finally, list all invoice numbers you found.
+
+        PDF URL: {pdf_url}"""
+
+        message = claude.messages.create(
             model="claude-3-opus-20240229",
-            max_tokens=1000,
-            messages=[
-                {
-                    "role": "user", 
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": prompt
-                        },
-                        {
-                            "type": "file",
-                            "file_data": {
-                                "type": "application/pdf",
-                                "base64": pdf_base64
-                            }
-                        }
-                    ]
-                }
-            ]
+            max_tokens=4096,
+            temperature=0,
+            messages=[{
+                "role": "user",
+                "content": prompt
+            }]
         )
         
-        invoice_numbers = completion.content[0].text
-        
-        return jsonify({
-            'invoice_numbers': invoice_numbers
-        })
+        if debug_mode:
+            return jsonify({
+                "full_response": message.content[0].text,
+                "model": "claude-3-opus-20240229",
+                "prompt": prompt,
+                "status": message.status
+            })
+        else:
+            return jsonify({"response": message.content[0].text})
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
+        return jsonify({
+            "error": f"Error code: {str(e)}",
+            "traceback": str(traceback.format_exc()) if debug_mode else None
+        })
+    
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
-    app.run(host='0.0.0.0', port=port)
+    debug = bool(os.environ.get('LOCAL_DEV', False))
+    app.run(host='0.0.0.0', port=port, debug=debug)
