@@ -10,7 +10,6 @@ import traceback
 import base64
 from io import BytesIO
 
-
 def get_api_key():
     api_key = os.getenv('ANTHROPIC_API_KEY')
     
@@ -43,6 +42,7 @@ genai.configure(api_key=gemini_api_key)
 
 @app.route('/extract-invoice', methods=['POST'])
 def extract_invoice():
+    debug_mode = request.json.get('debug', False)
     pdf_url = request.json.get('pdf_url')
 
     try:
@@ -55,7 +55,10 @@ def extract_invoice():
                 "error": f"Failed to download PDF: {str(e)}",
                 "traceback": str(traceback.format_exc()) if debug_mode else None
             })
-
+    pdf_data_for_gemini = {
+        "mime_type": "application/pdf",
+        "data": pdf_content
+    }
     
     try:
         debug_mode = request.json.get('debug', False)
@@ -69,22 +72,22 @@ def extract_invoice():
         Invoice Status
         Invoice Terms
         Invoice Notes   
-
-         PDF Content (base64): {pdf_base64}
         """
-
+        claude_prompt = prompt + f"""
+        PDF Content (base64): {pdf_base64}
+        """
         message = claude.messages.create(
             model="claude-3-opus-20240229",
             max_tokens=4096,
             temperature=0,
             messages=[{
                 "role": "user",
-                "content": prompt
+                "content": claude_prompt
             }]
         )
         
         gemini_model = genai.GenerativeModel('gemini-1.5-pro')
-        response = gemini_model.generate_content(prompt)
+        response = gemini_model.generate_content([prompt,pdf_data_for_gemini])
         response_text = response.text
         
         if debug_mode:
