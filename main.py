@@ -5,6 +5,10 @@ import anthropic
 import os
 from google.cloud import secretmanager
 from dotenv import load_dotenv
+import google.generativeai as genai
+import traceback
+import base64
+from io import BytesIO
 
 
 def get_api_key():
@@ -13,6 +17,14 @@ def get_api_key():
     if not api_key:
         # Fallback to Secret Manager if not found in environment
         return access_secret_version("anthropic-api-key", "latest")
+        
+    return api_key
+def get_gemini_api_key():
+    api_key = os.getenv('GOOGLE_API_KEY')
+    
+    if not api_key:
+        # Fallback to Secret Manager if not found in environment
+        return access_secret_version("gemini-api-key", "latest")
         
     return api_key
 
@@ -25,20 +37,41 @@ def access_secret_version(secret_id, version_id="latest"):
 app = Flask(__name__)
 api_key = get_api_key()
 claude = anthropic.Client(api_key=api_key)
+gemini_api_key = get_gemini_api_key()
+genai.configure(api_key=gemini_api_key)
+
 
 @app.route('/extract-invoice', methods=['POST'])
 def extract_invoice():
+    pdf_url = request.json.get('pdf_url')
+
     try:
-        pdf_url = request.json.get('pdf_url')
+        response = requests.get(pdf_url)
+        response.raise_for_status()
+        pdf_content = response.content
+        pdf_base64 = base64.b64encode(pdf_content).decode('utf-8')
+    except Exception as e:
+            return jsonify({
+                "error": f"Failed to download PDF: {str(e)}",
+                "traceback": str(traceback.format_exc()) if debug_mode else None
+            })
+
+    
+    try:
         debug_mode = request.json.get('debug', False)
         
-        prompt = f"""Please list all invoice numbers from this PDF.
-        
-        First, describe what you see in the document.
-        Then, explain how you identify invoice numbers.
-        Finally, list all invoice numbers you found.
+        prompt = f"""Please extract and the following data from this PDF.
+        Invoice Number
+        Invoice Date
+        Invoice Amount
+        Invoice Currency
+        Invoice Due Date
+        Invoice Status
+        Invoice Terms
+        Invoice Notes   
 
-        PDF URL: {pdf_url}"""
+         PDF Content (base64): {pdf_base64}
+        """
 
         message = claude.messages.create(
             model="claude-3-opus-20240229",
@@ -50,15 +83,19 @@ def extract_invoice():
             }]
         )
         
+        gemini_model = genai.GenerativeModel('gemini-1.5-pro')
+        response = gemini_model.generate_content(prompt)
+        response_text = response.text
+        
         if debug_mode:
             return jsonify({
-                "full_response": message.content[0].text,
                 "model": "claude-3-opus-20240229",
-                "prompt": prompt,
-                "status": message.status
+                "claude_response": message.content[0].text,
+                "gemini_model": "gemini-1.5-pro",
+                "gemini_response": response_text
             })
         else:
-            return jsonify({"response": message.content[0].text})
+            return jsonify({"Claude": message.content[0].text, "Gemini": response_text})
         
     except Exception as e:
         return jsonify({
