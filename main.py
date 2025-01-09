@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 import requests
 import base64
 import anthropic
@@ -9,7 +9,7 @@ import google.generativeai as genai
 import traceback
 import base64
 from io import BytesIO
-
+import json
 def get_api_key():
     api_key = os.getenv('ANTHROPIC_API_KEY')
     
@@ -65,17 +65,29 @@ def extract_invoice():
         prompt = f"""PLease calculate the average closing balance based on the bank statement provided 
         """
     
-        claude_prompt = prompt + f"""
-        PDF Content (base64): {pdf_base64}
-        """
+        
         message = claude.messages.create(
-            model="claude-3-opus-20240229",
+            model="claude-3-5-sonnet-20241022",
             max_tokens=4096,
-            temperature=0,
-            messages=[{
-                "role": "user",
-                "content": claude_prompt
-            }]
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "document",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "application/pdf",
+                                "data": pdf_base64
+                            }
+                        },
+                        {
+                            "type": "text",
+                            "text":prompt
+                        }
+                    ]
+                }
+            ],
         )
         
         gemini_model = genai.GenerativeModel('gemini-1.5-pro')
@@ -83,14 +95,26 @@ def extract_invoice():
         response_text = response.text
         
         if debug_mode:
-            return jsonify({
+            response_data = {
                 "model": "claude-3-opus-20240229",
                 "claude_response": message.content[0].text,
                 "gemini_model": "gemini-1.5-pro",
                 "gemini_response": response_text
-            })
-        else:
-            return jsonify({"Claude": message.content[0].text, "Gemini": response_text})
+            }
+            
+            # Format the response with proper indentation and line breaks
+            formatted_response = json.dumps(response_data, 
+                indent=4,
+                ensure_ascii=False,
+                separators=(',', ': ')
+            )
+            
+            # Return as a Response object to preserve formatting
+            return Response(
+                formatted_response,
+                status=200,
+                mimetype='application/json'
+            )
         
     except Exception as e:
         return jsonify({
