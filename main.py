@@ -43,18 +43,17 @@ genai.configure(api_key=gemini_api_key)
 @app.route('/extract-invoice', methods=['POST'])
 def extract_invoice():
     debug_mode = request.json.get('debug', False)
-    pdf_url = request.json.get('pdf_url')
+    file_path = request.json.get('file_path')
 
     try:
-        response = requests.get(pdf_url)
-        response.raise_for_status()
-        pdf_content = response.content
+        with open(file_path, 'rb') as file:
+            pdf_content = file.read()
         pdf_base64 = base64.b64encode(pdf_content).decode('utf-8')
     except Exception as e:
-            return jsonify({
-                "error": f"Failed to download PDF: {str(e)}",
-                "traceback": str(traceback.format_exc()) if debug_mode else None
-            })
+        return jsonify({
+            "error": f"Failed to download PDF: {str(e)}",
+            "traceback": str(traceback.format_exc()) if debug_mode else None
+        })
     pdf_data_for_gemini = {
         "mime_type": "application/pdf",
         "data": pdf_content
@@ -63,16 +62,9 @@ def extract_invoice():
     try:
         debug_mode = request.json.get('debug', False)
         
-        prompt = f"""Please extract and the following data from this PDF.
-        Invoice Number
-        Invoice Date
-        Invoice Amount
-        Invoice Currency
-        Invoice Due Date
-        Invoice Status
-        Invoice Terms
-        Invoice Notes   
+        prompt = f"""PLease calculate the average closing balance based on the bank statement provided 
         """
+    
         claude_prompt = prompt + f"""
         PDF Content (base64): {pdf_base64}
         """
