@@ -10,6 +10,8 @@ import traceback
 import base64
 from io import BytesIO
 import json
+from typing import List
+
 def get_api_key():
     api_key = os.getenv('ANTHROPIC_API_KEY')
     
@@ -40,88 +42,117 @@ gemini_api_key = get_gemini_api_key()
 genai.configure(api_key=gemini_api_key)
 
 
+def process_with_claude(file_paths):
+    # Prepare all files for Claude
+    file_contents = []
+    for file_path in file_paths:
+        try:
+            with open(file_path, 'rb') as file:
+                pdf_content = file.read()
+                file_contents.append({
+                    "type": "document",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "application/pdf",
+                        "data": base64.b64encode(pdf_content).decode()
+                    }
+                })
+        except Exception as e:
+            raise Exception(f"Failed to read file {file_path}: {str(e)}")
+
+    content = [{"type": "text", "text": "Please calculate the average daily balance based on the bank statements provided"}]
+    content.extend(file_contents)
+
+    message = claude.messages.create(
+        model="claude-3-5-sonnet-20241022",
+        max_tokens=4096,
+        messages=[{
+            "role": "user",
+            "content": content
+        }]
+    )
+    
+    return message.content[0].text
+
+def process_with_gemini(file_paths):
+    model = genai.GenerativeModel('gemini-1.5-pro')
+    
+    contents = []
+    for file_path in file_paths:
+        try:
+            with open(file_path, 'rb') as file:
+                pdf_content = file.read()
+                contents.append({
+                    "mime_type": "application/pdf",
+                    "data": pdf_content
+                })
+        except Exception as e:
+            raise Exception(f"Failed to read file {file_path}: {str(e)}")
+
+    prompt = "Please calculate the average daily balance based on these bank statements."
+    response = model.generate_content([prompt, *contents])
+    return response.text
+
 @app.route('/extract-invoice', methods=['POST'])
 def extract_invoice():
     debug_mode = request.json.get('debug', False)
-    file_path = request.json.get('file_path')
+    file_paths = request.json.get('file_paths', [])
+
+    if not file_paths:
+        return jsonify({"error": "No file paths provided"}), 400
 
     try:
-        with open(file_path, 'rb') as file:
-            pdf_content = file.read()
-        pdf_base64 = base64.b64encode(pdf_content).decode('utf-8')
-    except Exception as e:
-        return jsonify({
-            "error": f"Failed to download PDF: {str(e)}",
-            "traceback": str(traceback.format_exc()) if debug_mode else None
-        })
-    pdf_data_for_gemini = {
-        "mime_type": "application/pdf",
-        "data": pdf_content
-    }
-    
-    try:
-        debug_mode = request.json.get('debug', False)
+        # Process with both models
+        claude_response = process_with_claude(file_paths)
+        gemini_response = process_with_gemini(file_paths)
+
+        response_data = {
+            "model": "claude-3-opus-20240229",
+            "claude_response": claude_response,
+            "gemini_model": "gemini-1.5-pro",
+            "gemini_response": gemini_response
+        }
         
-        prompt = f"""PLease calculate the average closing balance based on the bank statement provided 
-        """
-    
-        
-        message = claude.messages.create(
-            model="claude-3-5-sonnet-20241022",
-            max_tokens=4096,
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "document",
-                            "source": {
-                                "type": "base64",
-                                "media_type": "application/pdf",
-                                "data": pdf_base64
-                            }
-                        },
-                        {
-                            "type": "text",
-                            "text":prompt
-                        }
-                    ]
-                }
-            ],
+        # Format the response with proper indentation
+        formatted_response = json.dumps(response_data, 
+            indent=4,
+            ensure_ascii=False,
+            separators=(',', ': ')
         )
         
-        gemini_model = genai.GenerativeModel('gemini-1.5-pro')
-        response = gemini_model.generate_content([prompt,pdf_data_for_gemini])
-        response_text = response.text
-        
-        if debug_mode:
-            response_data = {
-                "model": "claude-3-opus-20240229",
-                "claude_response": message.content[0].text,
-                "gemini_model": "gemini-1.5-pro",
-                "gemini_response": response_text
-            }
-            
-            # Format the response with proper indentation and line breaks
-            formatted_response = json.dumps(response_data, 
-                indent=4,
-                ensure_ascii=False,
-                separators=(',', ': ')
-            )
-            
-            # Return as a Response object to preserve formatting
-            return Response(
-                formatted_response,
-                status=200,
-                mimetype='application/json'
-            )
-        
+        return Response(
+            formatted_response,
+            status=200,
+            mimetype='application/json'
+        )
+
     except Exception as e:
         return jsonify({
-            "error": f"Error code: {str(e)}",
-            "traceback": str(traceback.format_exc()) if debug_mode else None
-        })
+            "error": str(e),
+            "traceback": traceback.format_exc() if debug_mode else None
+        }), 500
+
+def validate_files(file_paths):
+    total_size = 0
+    MAX_SIZE = 10 * 1024 * 1024  # 10MB example limit
     
+    for path in file_paths:
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"File not found: {path}")
+        
+        if not path.lower().endswith('.pdf'):
+            raise ValueError(f"File must be PDF: {path}")
+            
+        size = os.path.getsize(path)
+        total_size += size
+        
+        if total_size > MAX_SIZE:
+            raise ValueError("Total file size exceeds limit")
+
+
+
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
     debug = bool(os.environ.get('LOCAL_DEV', False))
