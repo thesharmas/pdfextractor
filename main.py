@@ -14,26 +14,10 @@ from typing import List
 
 def get_api_key():
     api_key = os.getenv('ANTHROPIC_API_KEY')
-    
-    if not api_key:
-        # Fallback to Secret Manager if not found in environment
-        return access_secret_version("anthropic-api-key", "latest")
-        
     return api_key
 def get_gemini_api_key():
     api_key = os.getenv('GOOGLE_API_KEY')
-    
-    if not api_key:
-        # Fallback to Secret Manager if not found in environment
-        return access_secret_version("gemini-api-key", "latest")
-        
     return api_key
-
-def access_secret_version(secret_id, version_id="latest"):
-    client = secretmanager.SecretManagerServiceClient()
-    name = f"projects/pdfextractor-441603/secrets/{secret_id}/versions/{version_id}"
-    response = client.access_secret_version(request={"name": name})
-    return response.payload.data.decode("UTF-8")
 
 app = Flask(__name__)
 api_key = get_api_key()
