@@ -15,6 +15,7 @@ from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage
 from app.services.content_service import ContentService
 from typing import List, Dict, Any, Tuple
+from langchain.tools import tool 
 
 
 
@@ -33,15 +34,14 @@ genai.configure(api_key=gemini_api_key)
 
 
 
-llm = ChatAnthropic(model="claude-3-5-sonnet-latest")
 
+@tool   
 def calculate_average_daily_balance(file_content: List[Dict[str, Any]]) -> Tuple[float, str]:
     """Calculate average daily balance from file content"""
     prompt = """
     Calculate the average daily balance based on the bank statements provided.
-    Provide your detailed calculation, but end your response with a single line starting with 'FINAL_AMOUNT:' 
-    followed by only the number without any currency symbols or commas.
-    Example: FINAL_AMOUNT:3495.16
+    Show your detailed calculation, and then on a new line provide the final amount in this exact format:
+    FINAL_AMOUNT:3495.16
     """
     
     content = ContentService.process_with_prompt(file_content, prompt)
@@ -59,12 +59,12 @@ def calculate_average_daily_balance(file_content: List[Dict[str, Any]]) -> Tuple
     except Exception as e:
         raise ValueError(f"Could not parse response: {response.content}")
 
+@tool
 def check_nsf(file_content: List[Dict[str, Any]]) -> Tuple[float, int, str]:
     """Check for NSF fees and count from bank statements"""
     prompt = """
-    Check for NSF (Non-Sufficient Funds) fees in the bank statements provided.
-    Count the total number of NSF incidents and calculate the total fees.
-    Provide your detailed analysis, but end your response with TWO lines:
+    Analyze the bank statements for NSF (Non-Sufficient Funds) fees.
+    Show your detailed analysis, and then on new lines provide the results in this exact format:
     NSF_COUNT:2
     NSF_FEES:70.00
     """
@@ -95,7 +95,8 @@ def check_nsf(file_content: List[Dict[str, Any]]) -> Tuple[float, int, str]:
     except Exception as e:
         raise ValueError(f"Could not parse response: {response.content}")
 
-
+llm = ChatAnthropic(model="claude-3-5-sonnet-latest")
+llm = llm.bind_tools([calculate_average_daily_balance, check_nsf])
 
 
 def process_with_gemini(file_paths):
@@ -126,18 +127,41 @@ def underwrite():
         return jsonify({"error": "No file paths provided"}), 400
 
     try:
-        # Process with both models
-
         file_content = ContentService.prepare_file_content(file_paths)
-        balance, detailed_response = calculate_average_daily_balance(file_content)
-        nsf_fees, nsf_count, nsf_details = check_nsf(file_content)
+        
+        # Use tools through LLM
+        result = llm.invoke("""
+            Use the tools provided to:
+            1. Calculate the average daily balance
+            2. Check for NSF fees
+            Return the results in a clear, structured format.
+            """)
+        
+        # Convert result to string if it's a list
+        result_text = '\n'.join(result) if isinstance(result, list) else str(result)
+        lines = result_text.split('\n')
+        
+        balance = None
+        nsf_fees = None
+        nsf_count = None
+        
+        for line in lines:
+            if line.startswith('FINAL_AMOUNT:'):
+                balance = float(line.replace('FINAL_AMOUNT:', '').strip())
+            elif line.startswith('NSF_COUNT:'):
+                nsf_count = int(line.replace('NSF_COUNT:', '').strip())
+            elif line.startswith('NSF_FEES:'):
+                nsf_fees = float(line.replace('NSF_FEES:', '').strip())
 
         response_data = {
-            "average_daily_balance": balance,
-            "detailed_calculation": detailed_response,
-            "nsf_fees": nsf_fees,
-            "nsf_count": nsf_count,
-            "nsf_details": nsf_details
+            "analysis": result_text,  # Full analysis from Claude
+            "metrics": {
+                "average_daily_balance": balance,
+                "nsf_information": {
+                    "total_fees": nsf_fees,
+                    "incident_count": nsf_count
+                }
+            }
         }
         
         formatted_response = json.dumps(response_data, 
@@ -157,36 +181,6 @@ def underwrite():
             "error": str(e),
             "traceback": traceback.format_exc() if debug_mode else None
         }), 500
-    """
-        claude_response = process_with_claude(file_paths)
-        gemini_response = process_with_gemini(file_paths)
-
-        response_data = {
-            "model": "claude-3-opus-20240229",
-            "claude_response": claude_response,
-            "gemini_model": "gemini-1.5-pro",
-            "gemini_response": gemini_response
-        }
-        
-        # Format the response with proper indentation
-        formatted_response = json.dumps(response_data, 
-            indent=4,
-            ensure_ascii=False,
-            separators=(',', ': ')
-        )
-        
-        return Response(
-            formatted_response,
-            status=200,
-            mimetype='application/json'
-        )
-
-    except Exception as e:
-        return jsonify({
-            "error": str(e),
-            "traceback": traceback.format_exc() if debug_mode else None
-        }), 500
-  """
 
 
 
