@@ -10,14 +10,25 @@ import traceback
 import base64
 from io import BytesIO
 import json
-from typing import List
+from typing import List, Tuple
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage
 from app.services.content_service import ContentService
 from typing import List, Dict, Any, Tuple
 from langchain.tools import tool 
+import logging
 
+# Set up logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),  # Print to console
+        logging.FileHandler('underwrite.log')  # Also save to file
+    ]
+)
 
+logger = logging.getLogger(__name__)
 
 def get_api_key():
     api_key = os.getenv('ANTHROPIC_API_KEY')
@@ -35,22 +46,24 @@ genai.configure(api_key=gemini_api_key)
 
 
 
-@tool   
-def calculate_average_daily_balance(file_content: List[Dict[str, Any]]) -> Tuple[float, str]:
-    """Calculate average daily balance from file content"""
+@tool
+def calculate_average_daily_balance() -> Tuple[float, str]:
+    """Calculate the average daily balance from the bank statements you've already analyzed."""
     prompt = """
-    Calculate the average daily balance based on the bank statements provided.
-    Show your detailed calculation, and then on a new line provide the final amount in this exact format:
+    Based on the bank statements I've shown you:
+    1. Calculate the average daily balance
+    2. Show your detailed calculation
+    3. End with the final amount in this exact format:
     FINAL_AMOUNT:3495.16
     """
     
-    content = ContentService.process_with_prompt(file_content, prompt)
-    messages = [HumanMessage(content=content)]
-    response = llm.invoke(messages)
+    # No need for ContentService since LLM already has the data
+    messages = [HumanMessage(content=prompt)]
+    response = claude.invoke(messages)
     
     # Extract the final amount
     try:
-        lines = response.content.split('\n')
+        lines = str(response.content).split('\n')
         for line in lines:
             if line.startswith('FINAL_AMOUNT:'):
                 amount = line.replace('FINAL_AMOUNT:', '').strip()
@@ -60,22 +73,25 @@ def calculate_average_daily_balance(file_content: List[Dict[str, Any]]) -> Tuple
         raise ValueError(f"Could not parse response: {response.content}")
 
 @tool
-def check_nsf(file_content: List[Dict[str, Any]]) -> Tuple[float, int, str]:
-    """Check for NSF fees and count from bank statements"""
+def check_nsf() -> Tuple[float, int, str]:
+    """Check for NSF fees and count from the bank statements you've already analyzed."""
     prompt = """
-    Analyze the bank statements for NSF (Non-Sufficient Funds) fees.
-    Show your detailed analysis, and then on new lines provide the results in this exact format:
+    Based on the bank statements I've shown you:
+    1. Find all NSF (Non-Sufficient Funds) fees
+    2. Count the total number of NSF incidents
+    3. Calculate the total fees
+    4. Show your detailed analysis
+    5. End with these exact format lines:
     NSF_COUNT:2
     NSF_FEES:70.00
     """
     
-    content = ContentService.process_with_prompt(file_content, prompt)
-    messages = [HumanMessage(content=content)]
-    response = llm.invoke(messages)
+    messages = [HumanMessage(content=prompt)]
+    response = claude.invoke(messages)
     
     # Extract both NSF count and fees
     try:
-        lines = response.content.split('\n')
+        lines = str(response.content).split('\n')
         nsf_count = None
         nsf_fees = None
         
@@ -95,29 +111,6 @@ def check_nsf(file_content: List[Dict[str, Any]]) -> Tuple[float, int, str]:
     except Exception as e:
         raise ValueError(f"Could not parse response: {response.content}")
 
-llm = ChatAnthropic(model="claude-3-5-sonnet-latest")
-llm = llm.bind_tools([calculate_average_daily_balance, check_nsf])
-
-
-def process_with_gemini(file_paths):
-    model = genai.GenerativeModel('gemini-1.5-pro')
-    
-    contents = []
-    for file_path in file_paths:
-        try:
-            with open(file_path, 'rb') as file:
-                pdf_content = file.read()
-                contents.append({
-                    "mime_type": "application/pdf",
-                    "data": pdf_content
-                })
-        except Exception as e:
-            raise Exception(f"Failed to read file {file_path}: {str(e)}")
-
-    prompt = "Please calculate the average daily balance over the entier period based on these bank statements."
-    response = model.generate_content([prompt, *contents])
-    return response.text
-
 @app.route('/underwrite', methods=['POST'])
 def underwrite():
     debug_mode = request.json.get('debug', False)
@@ -127,13 +120,58 @@ def underwrite():
         return jsonify({"error": "No file paths provided"}), 400
 
     try:
-        global file_content
-        file_content = ContentService.prepare_file_content(file_paths)
+        # Debug: Log file paths
+        logger.debug(f"Processing files: {file_paths}")
         
-        # Create a message that includes the file_content and explicit instructions
-    
-        # Invoke with the message and wait for both tool calls
-        result = llm.invoke("Analyze the bank statements by using the tools provided to check for NSF fees and calculate the average daily balance. for the tools use the file_content variable as the argument to the tool that contains the data.")
+        pdf_contents = []
+        for file_path in file_paths:
+            with open(file_path, 'rb') as file:
+                pdf_content = base64.b64encode(file.read()).decode('utf-8')
+                # Debug: Log first 100 chars of encoded content
+                logger.debug(f"PDF content preview for {file_path}: {pdf_content[:100]}...")
+                
+                pdf_contents.append({
+                    "type": "document",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "application/pdf",
+                        "data": pdf_content
+                    }
+                })
+        
+        logger.debug(f"Number of PDFs processed: {len(pdf_contents)}")
+        
+        # Create initial message with PDFs
+        message = HumanMessage(
+            content=[
+                {
+                    "type": "text",
+                    "text": """Please analyze these bank statements. I'll ask you specific questions about them after you've reviewed them."""
+                },
+                *pdf_contents
+            ]
+        )
+        
+        logger.debug("Message structure: %s", json.dumps(message.content[0], indent=2))
+        
+        # Initialize LLM with tools
+        llm = ChatAnthropic(model="claude-3-5-sonnet-latest")
+        llm = llm.bind_tools([calculate_average_daily_balance, check_nsf])
+        
+        logger.debug("Sending initial request to Claude...")
+        initial_response = llm.invoke([message])
+        logger.debug("Initial response: %s...", str(initial_response)[:200])
+        
+        # Now ask LLM to use the tools
+        analysis_message = HumanMessage(
+            content="""Now that you've reviewed the statements, please:
+            1. Use calculate_average_daily_balance() to get the balance
+            2. Use check_nsf() to analyze NSF fees
+            
+            Present the results in a clear format."""
+        )
+        
+        result = llm.invoke([analysis_message])
         
         # Parse the results
         if isinstance(result, list):
@@ -143,12 +181,10 @@ def underwrite():
             
         lines = result_text.split('\n')
         
-        # Initialize variables
         balance = None
         nsf_fees = None
         nsf_count = None
         
-        # Parse each line for results
         for line in lines:
             line = line.strip()
             if line.startswith('FINAL_AMOUNT:'):
@@ -168,8 +204,8 @@ def underwrite():
                     pass
 
         response_data = {
+            "analysis": result_text,
             "metrics": {
-                "analysis": result_text,
                 "average_daily_balance": balance,
                 "nsf_information": {
                     "total_fees": nsf_fees,
@@ -177,10 +213,6 @@ def underwrite():
                 }
             }
         }
-        
-        # Validate that we got all the data
-        if None in [balance, nsf_fees, nsf_count]:
-            response_data["warnings"] = "Some data could not be parsed from the response"
         
         formatted_response = json.dumps(response_data, 
             indent=4,
@@ -195,9 +227,15 @@ def underwrite():
         )
        
     except Exception as e:
+        logger.error("Error in underwrite", exc_info=True)  # This logs the full traceback
         return jsonify({
             "error": str(e),
-            "traceback": traceback.format_exc() if debug_mode else None
+            "traceback": traceback.format_exc() if debug_mode else None,
+            "debug": {
+                "stage": "error occurred during processing",
+                "file_paths": file_paths if 'file_paths' in locals() else None,
+                "pdf_contents_length": len(pdf_contents) if 'pdf_contents' in locals() else None
+            }
         }), 500
 
 
