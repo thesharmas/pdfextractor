@@ -3,7 +3,7 @@ import json
 import os
 
 def test_extract_invoice():
-    url = "http://localhost:8080/extract-invoice"
+    url = "http://localhost:8080/underwrite"
     payload = {
         "file_paths": [
             "./Bank1.pdf",
@@ -24,13 +24,9 @@ def test_extract_invoice():
                 
         response = requests.post(url, json=payload, headers=headers)
         data = response.json()
-        
+        print(data)
         # Format each response separately
-        print("\n=== Claude Response ===")
-        print(data['claude_response'])
         
-        print("\n=== Gemini Response ===")
-        print(data['gemini_response'])
         
     except Exception as e:
         print(f"Error: {str(e)}")

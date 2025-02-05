@@ -11,6 +11,12 @@ import base64
 from io import BytesIO
 import json
 from typing import List
+from langchain_anthropic import ChatAnthropic
+from langchain_core.messages import HumanMessage
+from app.services.content_service import ContentService
+from typing import List, Dict, Any, Tuple
+
+
 
 def get_api_key():
     api_key = os.getenv('ANTHROPIC_API_KEY')
@@ -26,37 +32,34 @@ gemini_api_key = get_gemini_api_key()
 genai.configure(api_key=gemini_api_key)
 
 
-def process_with_claude(file_paths):
-    # Prepare all files for Claude
-    file_contents = []
-    for file_path in file_paths:
-        try:
-            with open(file_path, 'rb') as file:
-                pdf_content = file.read()
-                file_contents.append({
-                    "type": "document",
-                    "source": {
-                        "type": "base64",
-                        "media_type": "application/pdf",
-                        "data": base64.b64encode(pdf_content).decode()
-                    }
-                })
-        except Exception as e:
-            raise Exception(f"Failed to read file {file_path}: {str(e)}")
 
-    content = [{"type": "text", "text": "Please calculate the average daily balance based on the bank statements provided"}]
-    content.extend(file_contents)
+llm = ChatAnthropic(model="claude-3-5-sonnet-latest")
 
-    message = claude.messages.create(
-        model="claude-3-5-sonnet-20241022",
-        max_tokens=4096,
-        messages=[{
-            "role": "user",
-            "content": content
-        }]
-    )
+def calculate_average_daily_balance(file_content: List[Dict[str, Any]]) -> Tuple[float, str]:
+    """Calculate average daily balance from file content"""
+    prompt = """
+    Calculate the average daily balance based on the bank statements provided.
+    Provide your detailed calculation, but end your response with a single line starting with 'FINAL_AMOUNT:' 
+    followed by only the number without any currency symbols or commas.
+    Example: FINAL_AMOUNT:3495.16
+    """
     
-    return message.content[0].text
+    content = ContentService.process_with_prompt(file_content, prompt)
+    messages = [HumanMessage(content=content)]
+    response = llm.invoke(messages)
+    
+    # Extract the final amount
+    try:
+        lines = response.content.split('\n')
+        for line in lines:
+            if line.startswith('FINAL_AMOUNT:'):
+                amount = line.replace('FINAL_AMOUNT:', '').strip()
+                return float(amount), response.content
+        raise ValueError("No FINAL_AMOUNT found in response")
+    except Exception as e:
+        raise ValueError(f"Could not parse response: {response.content}")
+
+
 
 def process_with_gemini(file_paths):
     model = genai.GenerativeModel('gemini-1.5-pro')
@@ -73,12 +76,12 @@ def process_with_gemini(file_paths):
         except Exception as e:
             raise Exception(f"Failed to read file {file_path}: {str(e)}")
 
-    prompt = "Please calculate the average daily balance based on these bank statements."
+    prompt = "Please calculate the average daily balance over the entier period based on these bank statements."
     response = model.generate_content([prompt, *contents])
     return response.text
 
-@app.route('/extract-invoice', methods=['POST'])
-def extract_invoice():
+@app.route('/underwrite', methods=['POST'])
+def underwrite():
     debug_mode = request.json.get('debug', False)
     file_paths = request.json.get('file_paths', [])
 
@@ -87,6 +90,33 @@ def extract_invoice():
 
     try:
         # Process with both models
+
+        file_content = ContentService.prepare_file_content(file_paths)
+        balance, detailed_response = calculate_average_daily_balance(file_content)
+        
+        response_data = {
+            "average_daily_balance": balance,
+            "detailed_calculation": detailed_response
+        }
+        
+        formatted_response = json.dumps(response_data, 
+            indent=4,
+            ensure_ascii=False,
+            separators=(',', ': ')
+        )
+
+        return Response(
+            formatted_response,
+            status=200,
+            mimetype='application/json'
+        )
+       
+    except Exception as e:
+        return jsonify({
+            "error": str(e),
+            "traceback": traceback.format_exc() if debug_mode else None
+        }), 500
+    """
         claude_response = process_with_claude(file_paths)
         gemini_response = process_with_gemini(file_paths)
 
@@ -115,23 +145,10 @@ def extract_invoice():
             "error": str(e),
             "traceback": traceback.format_exc() if debug_mode else None
         }), 500
+  """
 
-def validate_files(file_paths):
-    total_size = 0
-    MAX_SIZE = 10 * 1024 * 1024  # 10MB example limit
-    
-    for path in file_paths:
-        if not os.path.exists(path):
-            raise FileNotFoundError(f"File not found: {path}")
-        
-        if not path.lower().endswith('.pdf'):
-            raise ValueError(f"File must be PDF: {path}")
-            
-        size = os.path.getsize(path)
-        total_size += size
-        
-        if total_size > MAX_SIZE:
-            raise ValueError("Total file size exceeds limit")
+
+
 
 
 
