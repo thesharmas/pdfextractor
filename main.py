@@ -20,6 +20,7 @@ import logging
 from pydantic import BaseModel
 from app.services.content_service import ContentService
 from app.tools.analysis_tools import calculate_average_daily_balance, check_nsf
+from app.services.llm_factory import LLMFactory
 
 # Configure logging
 logging.basicConfig(
@@ -57,8 +58,8 @@ def underwrite():
         return jsonify({"error": "No file paths provided"}), 400
 
     try:
-        # Create orchestrator LLM
-        orchestrator_llm = ChatAnthropic(model="claude-3-5-sonnet-latest")
+        # Create orchestrator LLM using factory
+        orchestrator_llm = LLMFactory.create_llm()
         orchestrator_llm = orchestrator_llm.bind_tools([calculate_average_daily_balance, check_nsf])
         
         # Process PDFs using the correct method
@@ -92,12 +93,10 @@ def underwrite():
             tool = tool.strip().lower()
             if 'calculate_average_daily_balance' in tool:
                 logger.info("Calling calculate_average_daily_balance")
-                balance, balance_details = calculate_average_daily_balance({
-                "file_contents": pdf_contents})
+                balance, balance_details = calculate_average_daily_balance(pdf_contents)
             elif 'check_nsf' in tool:
                 logger.info("Calling check_nsf")
-                nsf_fees, nsf_count, nsf_details = check_nsf({
-                "file_contents": pdf_contents})
+                nsf_fees, nsf_count, nsf_details = check_nsf(pdf_contents)
         
         response_data = {
             "metrics": {

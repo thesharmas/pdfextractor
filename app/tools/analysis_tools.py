@@ -1,8 +1,9 @@
 import logging
 from typing import List, Dict, Tuple
-from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage
 from langchain_core.tools import tool
+from app.services.content_service import ContentService
+from app.services.llm_factory import LLMFactory
 
 logger = logging.getLogger(__name__)
 
@@ -11,8 +12,8 @@ def calculate_average_daily_balance(file_contents: List[Dict]) -> Tuple[float, s
     """Calculate the average daily balance from bank statements."""
     logger.info("🔧 Tool calculate_average_daily_balance called")
     try:
-        # Create a new LLM instance for analysis
-        analysis_llm = ChatAnthropic(model="claude-3-5-sonnet-latest")
+        analysis_llm = LLMFactory.create_llm()
+        content_service = ContentService()
         
         prompt = """
         Analyze these bank statements and calculate the average daily balance.
@@ -25,12 +26,8 @@ def calculate_average_daily_balance(file_contents: List[Dict]) -> Tuple[float, s
         FINAL_AMOUNT:1234.56
         """
         
-        messages = [
-            HumanMessage(content=[
-                {"type": "text", "text": prompt},
-                *file_contents
-            ])
-        ]
+        analysis_content = content_service.process_with_prompt(file_contents, prompt)
+        messages = [HumanMessage(content=analysis_content)]
         
         response = analysis_llm.invoke(messages)
         logger.debug("Raw response object: %s", response)
@@ -67,7 +64,8 @@ def check_nsf(file_contents: List[Dict]) -> Tuple[float, int, str]:
     """Check for NSF fees in bank statements."""
     logger.info("🔧 Tool check_nsf called")
     try:
-        analysis_llm = ChatAnthropic(model="claude-3-5-sonnet-latest")
+        analysis_llm = LLMFactory.create_llm()
+        content_service = ContentService()
         
         prompt = """
         Analyze these bank statements for NSF (Non-Sufficient Funds) fees.
@@ -81,12 +79,8 @@ def check_nsf(file_contents: List[Dict]) -> Tuple[float, int, str]:
         NSF_FEES:105.00
         """
         
-        messages = [
-            HumanMessage(content=[
-                {"type": "text", "text": prompt},
-                *file_contents
-            ])
-        ]
+        analysis_content = content_service.process_with_prompt(file_contents, prompt)
+        messages = [HumanMessage(content=analysis_content)]
         
         response = analysis_llm.invoke(messages)
         logger.debug("Raw response object: %s", response)
