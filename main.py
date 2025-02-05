@@ -130,10 +130,14 @@ def underwrite():
 
         file_content = ContentService.prepare_file_content(file_paths)
         balance, detailed_response = calculate_average_daily_balance(file_content)
-        
+        nsf_fees, nsf_count, nsf_details = check_nsf(file_content)
+
         response_data = {
             "average_daily_balance": balance,
-            "detailed_calculation": detailed_response
+            "detailed_calculation": detailed_response,
+            "nsf_fees": nsf_fees,
+            "nsf_count": nsf_count,
+            "nsf_details": nsf_details
         }
         
         formatted_response = json.dumps(response_data, 
