@@ -1,15 +1,9 @@
 from flask import Flask, request, jsonify, Response
-import requests
-import base64
-import anthropic
 import os
-from google.cloud import secretmanager
 from dotenv import load_dotenv
 import google.generativeai as genai
 import traceback
-import base64
 from io import BytesIO
-import json
 from typing import List, Tuple
 from langchain_core.tools import tool
 from langchain_anthropic import ChatAnthropic
