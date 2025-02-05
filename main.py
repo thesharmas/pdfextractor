@@ -59,6 +59,43 @@ def calculate_average_daily_balance(file_content: List[Dict[str, Any]]) -> Tuple
     except Exception as e:
         raise ValueError(f"Could not parse response: {response.content}")
 
+def check_nsf(file_content: List[Dict[str, Any]]) -> Tuple[float, int, str]:
+    """Check for NSF fees and count from bank statements"""
+    prompt = """
+    Check for NSF (Non-Sufficient Funds) fees in the bank statements provided.
+    Count the total number of NSF incidents and calculate the total fees.
+    Provide your detailed analysis, but end your response with TWO lines:
+    NSF_COUNT:2
+    NSF_FEES:70.00
+    """
+    
+    content = ContentService.process_with_prompt(file_content, prompt)
+    messages = [HumanMessage(content=content)]
+    response = llm.invoke(messages)
+    
+    # Extract both NSF count and fees
+    try:
+        lines = response.content.split('\n')
+        nsf_count = None
+        nsf_fees = None
+        
+        for line in lines:
+            if line.startswith('NSF_COUNT:'):
+                count_str = line.replace('NSF_COUNT:', '').strip()
+                nsf_count = int(count_str)
+            elif line.startswith('NSF_FEES:'):
+                fees_str = line.replace('NSF_FEES:', '').strip()
+                nsf_fees = float(fees_str)
+                
+        if nsf_count is None or nsf_fees is None:
+            raise ValueError("Missing NSF count or fees in response")
+            
+        return nsf_fees, nsf_count, response.content
+        
+    except Exception as e:
+        raise ValueError(f"Could not parse response: {response.content}")
+
+
 
 
 def process_with_gemini(file_paths):
