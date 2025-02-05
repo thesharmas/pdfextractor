@@ -53,3 +53,273 @@
 2025-02-04 17:28:16,655 - anthropic._base_client - DEBUG - HTTP Response: POST https://api.anthropic.com/v1/messages "200 OK" Headers({'date': 'Wed, 05 Feb 2025 01:28:16 GMT', 'content-type': 'application/json', 'transfer-encoding': 'chunked', 'connection': 'keep-alive', 'anthropic-ratelimit-requests-limit': '50', 'anthropic-ratelimit-requests-remaining': '49', 'anthropic-ratelimit-requests-reset': '2025-02-05T01:28:15Z', 'anthropic-ratelimit-input-tokens-limit': '40000', 'anthropic-ratelimit-input-tokens-remaining': '10000', 'anthropic-ratelimit-input-tokens-reset': '2025-02-05T01:29:00Z', 'anthropic-ratelimit-output-tokens-limit': '8000', 'anthropic-ratelimit-output-tokens-remaining': '8000', 'anthropic-ratelimit-output-tokens-reset': '2025-02-05T01:28:16Z', 'anthropic-ratelimit-tokens-limit': '48000', 'anthropic-ratelimit-tokens-remaining': '18000', 'anthropic-ratelimit-tokens-reset': '2025-02-05T01:28:16Z', 'request-id': 'req_015NE8rSsbsmrD35MZ5ZtYWA', 'via': '1.1 google', 'cf-cache-status': 'DYNAMIC', 'x-robots-tag': 'none', 'server': 'cloudflare', 'cf-ray': '90cf1f601e71f7bd-LAX', 'content-encoding': 'gzip'})
 2025-02-04 17:28:16,655 - anthropic._base_client - DEBUG - request_id: req_015NE8rSsbsmrD35MZ5ZtYWA
 2025-02-04 17:28:16,657 - werkzeug - INFO - 127.0.0.1 - - [04/Feb/2025 17:28:16] "POST /underwrite HTTP/1.1" 200 -
+2025-02-05 10:21:53,562 - httpcore.connection - DEBUG - close.started
+2025-02-05 10:21:53,563 - httpcore.connection - DEBUG - close.complete
+2025-02-05 10:21:56,116 - httpx - DEBUG - load_ssl_context verify=True cert=None trust_env=True http2=False
+2025-02-05 10:21:56,117 - httpx - DEBUG - load_verify_locations cafile='/Users/rohitsharma/Library/Python/3.9/lib/python/site-packages/certifi/cacert.pem'
+2025-02-05 10:21:56,127 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8080
+ * Running on http://192.168.1.199:8080
+2025-02-05 10:21:56,127 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-02-05 10:22:03,843 - httpx - DEBUG - load_ssl_context verify=True cert=None trust_env=True http2=False
+2025-02-05 10:22:03,843 - httpx - DEBUG - load_verify_locations cafile='/Users/rohitsharma/Library/Python/3.9/lib/python/site-packages/certifi/cacert.pem'
+2025-02-05 10:22:03,847 - anthropic._base_client - DEBUG - Request options: {'method': 'post', 'url': '/v1/messages', 'files': None, 'json_data': {'max_tokens': 1024, 'messages': [{'role': 'user', 'content': 'use the tools to analyze the bank statements and present the results in a clear format. the files are in pdf_contents'}], 'model': 'claude-3-5-sonnet-latest', 'tools': [{'name': 'calculate_average_daily_balance', 'description': 'Calculate the average daily balance from the bank statements provided.', 'input_schema': {'properties': {'file_contents': {'items': {'type': 'object'}, 'type': 'array'}}, 'required': ['file_contents'], 'type': 'object'}}, {'name': 'check_nsf', 'description': 'Check for NSF fees and count from the bank statements provided.', 'input_schema': {'properties': {'file_contents': {'items': {'type': 'object'}, 'type': 'array'}}, 'required': ['file_contents'], 'type': 'object'}}]}}
+2025-02-05 10:22:03,863 - anthropic._base_client - DEBUG - Sending HTTP Request: POST https://api.anthropic.com/v1/messages
+2025-02-05 10:22:03,863 - httpcore.connection - DEBUG - connect_tcp.started host='api.anthropic.com' port=443 local_address=None timeout=None socket_options=None
+2025-02-05 10:22:03,933 - httpcore.connection - DEBUG - connect_tcp.complete return_value=<httpcore._backends.sync.SyncStream object at 0x105c67ac0>
+2025-02-05 10:22:03,933 - httpcore.connection - DEBUG - start_tls.started ssl_context=<ssl.SSLContext object at 0x106ec0660> server_hostname='api.anthropic.com' timeout=None
+2025-02-05 10:22:03,991 - httpcore.connection - DEBUG - start_tls.complete return_value=<httpcore._backends.sync.SyncStream object at 0x105c67a60>
+2025-02-05 10:22:03,991 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-02-05 10:22:03,992 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-02-05 10:22:03,992 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-02-05 10:22:03,992 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-02-05 10:22:03,992 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-02-05 10:22:06,636 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Date', b'Wed, 05 Feb 2025 18:22:06 GMT'), (b'Content-Type', b'application/json'), (b'Transfer-Encoding', b'chunked'), (b'Connection', b'keep-alive'), (b'anthropic-ratelimit-requests-limit', b'50'), (b'anthropic-ratelimit-requests-remaining', b'49'), (b'anthropic-ratelimit-requests-reset', b'2025-02-05T18:22:05Z'), (b'anthropic-ratelimit-input-tokens-limit', b'40000'), (b'anthropic-ratelimit-input-tokens-remaining', b'40000'), (b'anthropic-ratelimit-input-tokens-reset', b'2025-02-05T18:22:04Z'), (b'anthropic-ratelimit-output-tokens-limit', b'8000'), (b'anthropic-ratelimit-output-tokens-remaining', b'8000'), (b'anthropic-ratelimit-output-tokens-reset', b'2025-02-05T18:22:06Z'), (b'anthropic-ratelimit-tokens-limit', b'48000'), (b'anthropic-ratelimit-tokens-remaining', b'48000'), (b'anthropic-ratelimit-tokens-reset', b'2025-02-05T18:22:04Z'), (b'request-id', b'req_01BzLEgKKviUtqqxDdDn8SQU'), (b'via', b'1.1 google'), (b'cf-cache-status', b'DYNAMIC'), (b'X-Robots-Tag', b'none'), (b'Server', b'cloudflare'), (b'CF-RAY', b'90d4ec7b3dec1034-LAX'), (b'Content-Encoding', b'gzip')])
+2025-02-05 10:22:06,640 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-02-05 10:22:06,640 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-02-05 10:22:06,642 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-02-05 10:22:06,642 - httpcore.http11 - DEBUG - response_closed.started
+2025-02-05 10:22:06,642 - httpcore.http11 - DEBUG - response_closed.complete
+2025-02-05 10:22:06,643 - anthropic._base_client - DEBUG - HTTP Response: POST https://api.anthropic.com/v1/messages "200 OK" Headers({'date': 'Wed, 05 Feb 2025 18:22:06 GMT', 'content-type': 'application/json', 'transfer-encoding': 'chunked', 'connection': 'keep-alive', 'anthropic-ratelimit-requests-limit': '50', 'anthropic-ratelimit-requests-remaining': '49', 'anthropic-ratelimit-requests-reset': '2025-02-05T18:22:05Z', 'anthropic-ratelimit-input-tokens-limit': '40000', 'anthropic-ratelimit-input-tokens-remaining': '40000', 'anthropic-ratelimit-input-tokens-reset': '2025-02-05T18:22:04Z', 'anthropic-ratelimit-output-tokens-limit': '8000', 'anthropic-ratelimit-output-tokens-remaining': '8000', 'anthropic-ratelimit-output-tokens-reset': '2025-02-05T18:22:06Z', 'anthropic-ratelimit-tokens-limit': '48000', 'anthropic-ratelimit-tokens-remaining': '48000', 'anthropic-ratelimit-tokens-reset': '2025-02-05T18:22:04Z', 'request-id': 'req_01BzLEgKKviUtqqxDdDn8SQU', 'via': '1.1 google', 'cf-cache-status': 'DYNAMIC', 'x-robots-tag': 'none', 'server': 'cloudflare', 'cf-ray': '90d4ec7b3dec1034-LAX', 'content-encoding': 'gzip'})
+2025-02-05 10:22:06,644 - anthropic._base_client - DEBUG - request_id: req_01BzLEgKKviUtqqxDdDn8SQU
+2025-02-05 10:22:06,660 - werkzeug - INFO - 127.0.0.1 - - [05/Feb/2025 10:22:06] "POST /underwrite HTTP/1.1" 200 -
+2025-02-05 10:27:45,223 - httpcore.connection - DEBUG - close.started
+2025-02-05 10:27:45,223 - httpcore.connection - DEBUG - close.complete
+2025-02-05 10:27:46,641 - httpx - DEBUG - load_ssl_context verify=True cert=None trust_env=True http2=False
+2025-02-05 10:27:46,641 - httpx - DEBUG - load_verify_locations cafile='/Users/rohitsharma/Library/Python/3.9/lib/python/site-packages/certifi/cacert.pem'
+2025-02-05 10:27:46,651 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8080
+ * Running on http://192.168.1.199:8080
+2025-02-05 10:27:46,651 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-02-05 10:27:49,730 - httpx - DEBUG - load_ssl_context verify=True cert=None trust_env=True http2=False
+2025-02-05 10:27:49,730 - httpx - DEBUG - load_verify_locations cafile='/Users/rohitsharma/Library/Python/3.9/lib/python/site-packages/certifi/cacert.pem'
+2025-02-05 10:27:49,734 - anthropic._base_client - DEBUG - Request options: {'method': 'post', 'url': '/v1/messages', 'files': None, 'json_data': {'max_tokens': 1024, 'messages': [{'role': 'user', 'content': "Here are bank statements for you to analyze.\n                    \n                    After you've reviewed them, you must:\n                    1. Call calculate_average_daily_balance() to get the balance\n                    2. Call check_nsf() to analyze NSF fees\n                    \n                    Important: When these functions are called, use the data from these statements to answer their questions.\n                    Do not skip either function call."}], 'model': 'claude-3-5-sonnet-latest', 'tools': [{'name': 'calculate_average_daily_balance', 'description': 'Calculate the average daily balance from the bank statements provided.', 'input_schema': {'properties': {'file_contents': {'items': {'type': 'object'}, 'type': 'array'}}, 'required': ['file_contents'], 'type': 'object'}}, {'name': 'check_nsf', 'description': 'Check for NSF fees and count from the bank statements provided.', 'input_schema': {'properties': {'file_contents': {'items': {'type': 'object'}, 'type': 'array'}}, 'required': ['file_contents'], 'type': 'object'}}]}}
+2025-02-05 10:27:49,748 - anthropic._base_client - DEBUG - Sending HTTP Request: POST https://api.anthropic.com/v1/messages
+2025-02-05 10:27:49,748 - httpcore.connection - DEBUG - connect_tcp.started host='api.anthropic.com' port=443 local_address=None timeout=None socket_options=None
+2025-02-05 10:27:49,774 - httpcore.connection - DEBUG - connect_tcp.complete return_value=<httpcore._backends.sync.SyncStream object at 0x10983acd0>
+2025-02-05 10:27:49,774 - httpcore.connection - DEBUG - start_tls.started ssl_context=<ssl.SSLContext object at 0x1098cc660> server_hostname='api.anthropic.com' timeout=None
+2025-02-05 10:27:49,827 - httpcore.connection - DEBUG - start_tls.complete return_value=<httpcore._backends.sync.SyncStream object at 0x10983aa30>
+2025-02-05 10:27:49,827 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-02-05 10:27:49,828 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-02-05 10:27:49,828 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-02-05 10:27:49,828 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-02-05 10:27:49,828 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-02-05 10:27:53,599 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Date', b'Wed, 05 Feb 2025 18:27:53 GMT'), (b'Content-Type', b'application/json'), (b'Transfer-Encoding', b'chunked'), (b'Connection', b'keep-alive'), (b'anthropic-ratelimit-requests-limit', b'50'), (b'anthropic-ratelimit-requests-remaining', b'49'), (b'anthropic-ratelimit-requests-reset', b'2025-02-05T18:27:51Z'), (b'anthropic-ratelimit-input-tokens-limit', b'40000'), (b'anthropic-ratelimit-input-tokens-remaining', b'40000'), (b'anthropic-ratelimit-input-tokens-reset', b'2025-02-05T18:27:51Z'), (b'anthropic-ratelimit-output-tokens-limit', b'8000'), (b'anthropic-ratelimit-output-tokens-remaining', b'8000'), (b'anthropic-ratelimit-output-tokens-reset', b'2025-02-05T18:27:53Z'), (b'anthropic-ratelimit-tokens-limit', b'48000'), (b'anthropic-ratelimit-tokens-remaining', b'48000'), (b'anthropic-ratelimit-tokens-reset', b'2025-02-05T18:27:51Z'), (b'request-id', b'req_01KPCBudxgFE9c49RmBGakJ2'), (b'via', b'1.1 google'), (b'cf-cache-status', b'DYNAMIC'), (b'X-Robots-Tag', b'none'), (b'Server', b'cloudflare'), (b'CF-RAY', b'90d4f4ecacb67c91-LAX'), (b'Content-Encoding', b'gzip')])
+2025-02-05 10:27:53,602 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-02-05 10:27:53,602 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-02-05 10:27:53,603 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-02-05 10:27:53,603 - httpcore.http11 - DEBUG - response_closed.started
+2025-02-05 10:27:53,603 - httpcore.http11 - DEBUG - response_closed.complete
+2025-02-05 10:27:53,603 - anthropic._base_client - DEBUG - HTTP Response: POST https://api.anthropic.com/v1/messages "200 OK" Headers({'date': 'Wed, 05 Feb 2025 18:27:53 GMT', 'content-type': 'application/json', 'transfer-encoding': 'chunked', 'connection': 'keep-alive', 'anthropic-ratelimit-requests-limit': '50', 'anthropic-ratelimit-requests-remaining': '49', 'anthropic-ratelimit-requests-reset': '2025-02-05T18:27:51Z', 'anthropic-ratelimit-input-tokens-limit': '40000', 'anthropic-ratelimit-input-tokens-remaining': '40000', 'anthropic-ratelimit-input-tokens-reset': '2025-02-05T18:27:51Z', 'anthropic-ratelimit-output-tokens-limit': '8000', 'anthropic-ratelimit-output-tokens-remaining': '8000', 'anthropic-ratelimit-output-tokens-reset': '2025-02-05T18:27:53Z', 'anthropic-ratelimit-tokens-limit': '48000', 'anthropic-ratelimit-tokens-remaining': '48000', 'anthropic-ratelimit-tokens-reset': '2025-02-05T18:27:51Z', 'request-id': 'req_01KPCBudxgFE9c49RmBGakJ2', 'via': '1.1 google', 'cf-cache-status': 'DYNAMIC', 'x-robots-tag': 'none', 'server': 'cloudflare', 'cf-ray': '90d4f4ecacb67c91-LAX', 'content-encoding': 'gzip'})
+2025-02-05 10:27:53,604 - anthropic._base_client - DEBUG - request_id: req_01KPCBudxgFE9c49RmBGakJ2
+2025-02-05 10:27:53,620 - werkzeug - INFO - 127.0.0.1 - - [05/Feb/2025 10:27:53] "POST /underwrite HTTP/1.1" 200 -
+2025-02-05 10:29:35,533 - httpcore.connection - DEBUG - close.started
+2025-02-05 10:29:35,534 - httpcore.connection - DEBUG - close.complete
+2025-02-05 10:29:36,575 - httpx - DEBUG - load_ssl_context verify=True cert=None trust_env=True http2=False
+2025-02-05 10:29:36,575 - httpx - DEBUG - load_verify_locations cafile='/Users/rohitsharma/Library/Python/3.9/lib/python/site-packages/certifi/cacert.pem'
+2025-02-05 10:29:36,585 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8080
+ * Running on http://192.168.1.199:8080
+2025-02-05 10:29:36,585 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-02-05 10:29:38,993 - httpx - DEBUG - load_ssl_context verify=True cert=None trust_env=True http2=False
+2025-02-05 10:29:38,993 - httpx - DEBUG - load_verify_locations cafile='/Users/rohitsharma/Library/Python/3.9/lib/python/site-packages/certifi/cacert.pem'
+2025-02-05 10:29:38,997 - anthropic._base_client - DEBUG - Request options: {'method': 'post', 'url': '/v1/messages', 'files': None, 'json_data': {'max_tokens': 1024, 'messages': [{'role': 'user', 'content': "Here are bank statements for you to analyze.\n                    \n                    After you've reviewed them, you must:\n                    1. Call calculate_average_daily_balance() to get the balance\n                    2. Call check_nsf() to analyze NSF fees\n                    \n                    Important: When these functions are called, use the data from these statements to answer their questions.\n                    Do not skip either function call."}], 'model': 'claude-3-5-sonnet-latest', 'tools': [{'name': 'calculate_average_daily_balance', 'description': 'Calculate the average daily balance from the bank statements provided.', 'input_schema': {'properties': {'file_contents': {'items': {'type': 'object'}, 'type': 'array'}}, 'required': ['file_contents'], 'type': 'object'}}, {'name': 'check_nsf', 'description': 'Check for NSF fees and count from the bank statements provided.', 'input_schema': {'properties': {'file_contents': {'items': {'type': 'object'}, 'type': 'array'}}, 'required': ['file_contents'], 'type': 'object'}}]}}
+2025-02-05 10:29:39,011 - anthropic._base_client - DEBUG - Sending HTTP Request: POST https://api.anthropic.com/v1/messages
+2025-02-05 10:29:39,012 - httpcore.connection - DEBUG - connect_tcp.started host='api.anthropic.com' port=443 local_address=None timeout=None socket_options=None
+2025-02-05 10:29:39,075 - httpcore.connection - DEBUG - connect_tcp.complete return_value=<httpcore._backends.sync.SyncStream object at 0x10494aaf0>
+2025-02-05 10:29:39,076 - httpcore.connection - DEBUG - start_tls.started ssl_context=<ssl.SSLContext object at 0x1049dd660> server_hostname='api.anthropic.com' timeout=None
+2025-02-05 10:29:39,132 - httpcore.connection - DEBUG - start_tls.complete return_value=<httpcore._backends.sync.SyncStream object at 0x10494aa90>
+2025-02-05 10:29:39,133 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-02-05 10:29:39,133 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-02-05 10:29:39,133 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-02-05 10:29:39,133 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-02-05 10:29:39,133 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-02-05 10:29:41,941 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Date', b'Wed, 05 Feb 2025 18:29:41 GMT'), (b'Content-Type', b'application/json'), (b'Transfer-Encoding', b'chunked'), (b'Connection', b'keep-alive'), (b'anthropic-ratelimit-requests-limit', b'50'), (b'anthropic-ratelimit-requests-remaining', b'49'), (b'anthropic-ratelimit-requests-reset', b'2025-02-05T18:29:40Z'), (b'anthropic-ratelimit-input-tokens-limit', b'40000'), (b'anthropic-ratelimit-input-tokens-remaining', b'40000'), (b'anthropic-ratelimit-input-tokens-reset', b'2025-02-05T18:29:40Z'), (b'anthropic-ratelimit-output-tokens-limit', b'8000'), (b'anthropic-ratelimit-output-tokens-remaining', b'8000'), (b'anthropic-ratelimit-output-tokens-reset', b'2025-02-05T18:29:41Z'), (b'anthropic-ratelimit-tokens-limit', b'48000'), (b'anthropic-ratelimit-tokens-remaining', b'48000'), (b'anthropic-ratelimit-tokens-reset', b'2025-02-05T18:29:40Z'), (b'request-id', b'req_01QLAwp48vxapvTRHPSFukn8'), (b'via', b'1.1 google'), (b'cf-cache-status', b'DYNAMIC'), (b'X-Robots-Tag', b'none'), (b'Server', b'cloudflare'), (b'CF-RAY', b'90d4f797da4ccb94-LAX'), (b'Content-Encoding', b'gzip')])
+2025-02-05 10:29:41,944 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-02-05 10:29:41,945 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-02-05 10:29:41,946 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-02-05 10:29:41,946 - httpcore.http11 - DEBUG - response_closed.started
+2025-02-05 10:29:41,946 - httpcore.http11 - DEBUG - response_closed.complete
+2025-02-05 10:29:41,946 - anthropic._base_client - DEBUG - HTTP Response: POST https://api.anthropic.com/v1/messages "200 OK" Headers({'date': 'Wed, 05 Feb 2025 18:29:41 GMT', 'content-type': 'application/json', 'transfer-encoding': 'chunked', 'connection': 'keep-alive', 'anthropic-ratelimit-requests-limit': '50', 'anthropic-ratelimit-requests-remaining': '49', 'anthropic-ratelimit-requests-reset': '2025-02-05T18:29:40Z', 'anthropic-ratelimit-input-tokens-limit': '40000', 'anthropic-ratelimit-input-tokens-remaining': '40000', 'anthropic-ratelimit-input-tokens-reset': '2025-02-05T18:29:40Z', 'anthropic-ratelimit-output-tokens-limit': '8000', 'anthropic-ratelimit-output-tokens-remaining': '8000', 'anthropic-ratelimit-output-tokens-reset': '2025-02-05T18:29:41Z', 'anthropic-ratelimit-tokens-limit': '48000', 'anthropic-ratelimit-tokens-remaining': '48000', 'anthropic-ratelimit-tokens-reset': '2025-02-05T18:29:40Z', 'request-id': 'req_01QLAwp48vxapvTRHPSFukn8', 'via': '1.1 google', 'cf-cache-status': 'DYNAMIC', 'x-robots-tag': 'none', 'server': 'cloudflare', 'cf-ray': '90d4f797da4ccb94-LAX', 'content-encoding': 'gzip'})
+2025-02-05 10:29:41,946 - anthropic._base_client - DEBUG - request_id: req_01QLAwp48vxapvTRHPSFukn8
+2025-02-05 10:29:41,961 - __main__ - INFO - 🔍 Complete response from Claude: content="I'll help analyze the bank statements. However, I notice that no actual bank statement data has been provided yet. In order to perform both required analyses, I need you to provide the bank statements data that should be passed to both functions.\n\nPlease share the bank statements data and I'll:\n1. Calculate the average daily balance\n2. Check for NSF fees\n\nOnce you provide the statements, I can properly analyze them using both functions as requested." additional_kwargs={} response_metadata={'id': 'msg_01GmkRMk1juYNe1XfSRL1vNb', 'model': 'claude-3-5-sonnet-20241022', 'stop_reason': 'end_turn', 'stop_sequence': None, 'usage': {'cache_creation_input_tokens': 0, 'cache_read_input_tokens': 0, 'input_tokens': 564, 'output_tokens': 96}} id='run-8d0fe6d0-8761-449e-9ad7-c0298325069b-0' usage_metadata={'input_tokens': 564, 'output_tokens': 96, 'total_tokens': 660, 'input_token_details': {'cache_read': 0, 'cache_creation': 0}}
+2025-02-05 10:29:41,961 - werkzeug - INFO - 127.0.0.1 - - [05/Feb/2025 10:29:41] "POST /underwrite HTTP/1.1" 200 -
+2025-02-05 10:31:26,094 - httpcore.connection - DEBUG - close.started
+2025-02-05 10:31:26,095 - httpcore.connection - DEBUG - close.complete
+2025-02-05 10:31:27,818 - httpx - DEBUG - load_ssl_context verify=True cert=None trust_env=True http2=False
+2025-02-05 10:31:27,818 - httpx - DEBUG - load_verify_locations cafile='/Users/rohitsharma/Library/Python/3.9/lib/python/site-packages/certifi/cacert.pem'
+2025-02-05 10:31:27,828 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8080
+ * Running on http://192.168.1.199:8080
+2025-02-05 10:31:27,828 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-02-05 10:31:30,130 - httpx - DEBUG - load_ssl_context verify=True cert=None trust_env=True http2=False
+2025-02-05 10:31:30,130 - httpx - DEBUG - load_verify_locations cafile='/Users/rohitsharma/Library/Python/3.9/lib/python/site-packages/certifi/cacert.pem'
+2025-02-05 10:31:30,134 - anthropic._base_client - DEBUG - Request options: {'method': 'post', 'url': '/v1/messages', 'files': None, 'json_data': {'max_tokens': 1024, 'messages': [{'role': 'user', 'content': 'Bank statements are in the variable pdf_contents. use the tools below to analyze. pass pdf_contents to the tools.\n                    \n                    \n                    1. Call calculate_average_daily_balance() to get the balance\n                    2. Call check_nsf() to analyze NSF fees\n                    \n                    Important: When these functions are called, pass pdf_contents to them.\n                    Do not skip either function call.'}], 'model': 'claude-3-5-sonnet-latest', 'tools': [{'name': 'calculate_average_daily_balance', 'description': 'Calculate the average daily balance from the bank statements provided.', 'input_schema': {'properties': {'file_contents': {'items': {'type': 'object'}, 'type': 'array'}}, 'required': ['file_contents'], 'type': 'object'}}, {'name': 'check_nsf', 'description': 'Check for NSF fees and count from the bank statements provided.', 'input_schema': {'properties': {'file_contents': {'items': {'type': 'object'}, 'type': 'array'}}, 'required': ['file_contents'], 'type': 'object'}}]}}
+2025-02-05 10:31:30,148 - anthropic._base_client - DEBUG - Sending HTTP Request: POST https://api.anthropic.com/v1/messages
+2025-02-05 10:31:30,148 - httpcore.connection - DEBUG - connect_tcp.started host='api.anthropic.com' port=443 local_address=None timeout=None socket_options=None
+2025-02-05 10:31:30,182 - httpcore.connection - DEBUG - connect_tcp.complete return_value=<httpcore._backends.sync.SyncStream object at 0x106d4b040>
+2025-02-05 10:31:30,182 - httpcore.connection - DEBUG - start_tls.started ssl_context=<ssl.SSLContext object at 0x106d8c660> server_hostname='api.anthropic.com' timeout=None
+2025-02-05 10:31:30,233 - httpcore.connection - DEBUG - start_tls.complete return_value=<httpcore._backends.sync.SyncStream object at 0x106d4b2e0>
+2025-02-05 10:31:30,234 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-02-05 10:31:30,234 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-02-05 10:31:30,234 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-02-05 10:31:30,234 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-02-05 10:31:30,234 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-02-05 10:31:32,244 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Date', b'Wed, 05 Feb 2025 18:31:32 GMT'), (b'Content-Type', b'application/json'), (b'Transfer-Encoding', b'chunked'), (b'Connection', b'keep-alive'), (b'anthropic-ratelimit-requests-limit', b'50'), (b'anthropic-ratelimit-requests-remaining', b'49'), (b'anthropic-ratelimit-requests-reset', b'2025-02-05T18:31:31Z'), (b'anthropic-ratelimit-input-tokens-limit', b'40000'), (b'anthropic-ratelimit-input-tokens-remaining', b'40000'), (b'anthropic-ratelimit-input-tokens-reset', b'2025-02-05T18:31:31Z'), (b'anthropic-ratelimit-output-tokens-limit', b'8000'), (b'anthropic-ratelimit-output-tokens-remaining', b'8000'), (b'anthropic-ratelimit-output-tokens-reset', b'2025-02-05T18:31:32Z'), (b'anthropic-ratelimit-tokens-limit', b'48000'), (b'anthropic-ratelimit-tokens-remaining', b'48000'), (b'anthropic-ratelimit-tokens-reset', b'2025-02-05T18:31:31Z'), (b'request-id', b'req_01AaBrYyUHQE3YwmPaxmy8jE'), (b'via', b'1.1 google'), (b'cf-cache-status', b'DYNAMIC'), (b'X-Robots-Tag', b'none'), (b'Server', b'cloudflare'), (b'CF-RAY', b'90d4fa4e3d2a7c74-LAX'), (b'Content-Encoding', b'gzip')])
+2025-02-05 10:31:32,247 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-02-05 10:31:32,247 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-02-05 10:31:32,248 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-02-05 10:31:32,248 - httpcore.http11 - DEBUG - response_closed.started
+2025-02-05 10:31:32,248 - httpcore.http11 - DEBUG - response_closed.complete
+2025-02-05 10:31:32,249 - anthropic._base_client - DEBUG - HTTP Response: POST https://api.anthropic.com/v1/messages "200 OK" Headers({'date': 'Wed, 05 Feb 2025 18:31:32 GMT', 'content-type': 'application/json', 'transfer-encoding': 'chunked', 'connection': 'keep-alive', 'anthropic-ratelimit-requests-limit': '50', 'anthropic-ratelimit-requests-remaining': '49', 'anthropic-ratelimit-requests-reset': '2025-02-05T18:31:31Z', 'anthropic-ratelimit-input-tokens-limit': '40000', 'anthropic-ratelimit-input-tokens-remaining': '40000', 'anthropic-ratelimit-input-tokens-reset': '2025-02-05T18:31:31Z', 'anthropic-ratelimit-output-tokens-limit': '8000', 'anthropic-ratelimit-output-tokens-remaining': '8000', 'anthropic-ratelimit-output-tokens-reset': '2025-02-05T18:31:32Z', 'anthropic-ratelimit-tokens-limit': '48000', 'anthropic-ratelimit-tokens-remaining': '48000', 'anthropic-ratelimit-tokens-reset': '2025-02-05T18:31:31Z', 'request-id': 'req_01AaBrYyUHQE3YwmPaxmy8jE', 'via': '1.1 google', 'cf-cache-status': 'DYNAMIC', 'x-robots-tag': 'none', 'server': 'cloudflare', 'cf-ray': '90d4fa4e3d2a7c74-LAX', 'content-encoding': 'gzip'})
+2025-02-05 10:31:32,249 - anthropic._base_client - DEBUG - request_id: req_01AaBrYyUHQE3YwmPaxmy8jE
+2025-02-05 10:31:32,262 - __main__ - INFO - 🔍 Complete response from Claude: content=[{'citations': None, 'text': "I'll help you analyze the bank statements using both functions, passing pdf_contents as the parameter.\n\n1. First, let's calculate the average daily balance:", 'type': 'text'}, {'id': 'toolu_01LhFEXrAURTRpuDJFdA1oSD', 'input': {'file_contents': 'pdf_contents'}, 'name': 'calculate_average_daily_balance', 'type': 'tool_use'}] additional_kwargs={} response_metadata={'id': 'msg_01Hm2KYfwRAXTC8jiASPRBkH', 'model': 'claude-3-5-sonnet-20241022', 'stop_reason': 'tool_use', 'stop_sequence': None, 'usage': {'cache_creation_input_tokens': 0, 'cache_read_input_tokens': 0, 'input_tokens': 567, 'output_tokens': 95}} id='run-227445ff-30b5-4961-8984-0d34a3635c9c-0' tool_calls=[{'name': 'calculate_average_daily_balance', 'args': {'file_contents': 'pdf_contents'}, 'id': 'toolu_01LhFEXrAURTRpuDJFdA1oSD', 'type': 'tool_call'}] usage_metadata={'input_tokens': 567, 'output_tokens': 95, 'total_tokens': 662, 'input_token_details': {'cache_read': 0, 'cache_creation': 0}}
+2025-02-05 10:31:32,263 - werkzeug - INFO - 127.0.0.1 - - [05/Feb/2025 10:31:32] "POST /underwrite HTTP/1.1" 200 -
+2025-02-05 10:41:32,007 - werkzeug - INFO - 192.168.1.2 - - [05/Feb/2025 10:41:32] "[33mGET / HTTP/1.1[0m" 404 -
+2025-02-05 10:42:00,628 - httpcore.connection - DEBUG - close.started
+2025-02-05 10:42:00,629 - httpcore.connection - DEBUG - close.complete
+2025-02-05 10:45:09,068 - httpx - DEBUG - load_ssl_context verify=True cert=None trust_env=True http2=False
+2025-02-05 10:45:09,068 - httpx - DEBUG - load_verify_locations cafile='/Users/rohitsharma/Library/Python/3.9/lib/python/site-packages/certifi/cacert.pem'
+2025-02-05 10:45:09,078 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8080
+ * Running on http://192.168.1.199:8080
+2025-02-05 10:45:09,078 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-02-05 10:45:17,800 - httpx - DEBUG - load_ssl_context verify=True cert=None trust_env=True http2=False
+2025-02-05 10:45:17,800 - httpx - DEBUG - load_verify_locations cafile='/Users/rohitsharma/Library/Python/3.9/lib/python/site-packages/certifi/cacert.pem'
+2025-02-05 10:45:17,804 - anthropic._base_client - DEBUG - Request options: {'method': 'post', 'url': '/v1/messages', 'files': None, 'json_data': {'max_tokens': 1024, 'messages': [{'role': 'user', 'content': 'Bank statements are in the variable pdf_contents. use the tools below to analyze. pass pdf_contents to the tools.\n                    \n                    \n                    1. Call calculate_average_daily_balance() to get the balance\n                    2. Call check_nsf() to analyze NSF fees\n                    \n                    Important: When these functions are called, pass pdf_contents to them.\n                    Do not skip either function call.'}], 'model': 'claude-3-5-sonnet-latest', 'tools': [{'name': 'calculate_average_daily_balance', 'description': 'Calculate the average daily balance from the bank statements provided.', 'input_schema': {'properties': {'file_contents': {'items': {'type': 'object'}, 'type': 'array'}}, 'required': ['file_contents'], 'type': 'object'}}, {'name': 'check_nsf', 'description': 'Check for NSF fees and count from the bank statements provided.', 'input_schema': {'properties': {'file_contents': {'items': {'type': 'object'}, 'type': 'array'}}, 'required': ['file_contents'], 'type': 'object'}}]}}
+2025-02-05 10:45:17,818 - anthropic._base_client - DEBUG - Sending HTTP Request: POST https://api.anthropic.com/v1/messages
+2025-02-05 10:45:17,818 - httpcore.connection - DEBUG - connect_tcp.started host='api.anthropic.com' port=443 local_address=None timeout=None socket_options=None
+2025-02-05 10:45:17,867 - httpcore.connection - DEBUG - connect_tcp.complete return_value=<httpcore._backends.sync.SyncStream object at 0x10946e1c0>
+2025-02-05 10:45:17,867 - httpcore.connection - DEBUG - start_tls.started ssl_context=<ssl.SSLContext object at 0x1094b9660> server_hostname='api.anthropic.com' timeout=None
+2025-02-05 10:45:17,920 - httpcore.connection - DEBUG - start_tls.complete return_value=<httpcore._backends.sync.SyncStream object at 0x10946e400>
+2025-02-05 10:45:17,920 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-02-05 10:45:17,920 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-02-05 10:45:17,920 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-02-05 10:45:17,921 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-02-05 10:45:17,921 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-02-05 10:45:20,057 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Date', b'Wed, 05 Feb 2025 18:45:20 GMT'), (b'Content-Type', b'application/json'), (b'Transfer-Encoding', b'chunked'), (b'Connection', b'keep-alive'), (b'anthropic-ratelimit-requests-limit', b'50'), (b'anthropic-ratelimit-requests-remaining', b'49'), (b'anthropic-ratelimit-requests-reset', b'2025-02-05T18:45:19Z'), (b'anthropic-ratelimit-input-tokens-limit', b'40000'), (b'anthropic-ratelimit-input-tokens-remaining', b'40000'), (b'anthropic-ratelimit-input-tokens-reset', b'2025-02-05T18:45:19Z'), (b'anthropic-ratelimit-output-tokens-limit', b'8000'), (b'anthropic-ratelimit-output-tokens-remaining', b'8000'), (b'anthropic-ratelimit-output-tokens-reset', b'2025-02-05T18:45:19Z'), (b'anthropic-ratelimit-tokens-limit', b'48000'), (b'anthropic-ratelimit-tokens-remaining', b'48000'), (b'anthropic-ratelimit-tokens-reset', b'2025-02-05T18:45:19Z'), (b'request-id', b'req_01XTKWc2ZTgJnVHavAWCT3cR'), (b'via', b'1.1 google'), (b'cf-cache-status', b'DYNAMIC'), (b'X-Robots-Tag', b'none'), (b'Server', b'cloudflare'), (b'CF-RAY', b'90d50e833c90f7e5-LAX'), (b'Content-Encoding', b'gzip')])
+2025-02-05 10:45:20,060 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-02-05 10:45:20,061 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-02-05 10:45:20,061 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-02-05 10:45:20,062 - httpcore.http11 - DEBUG - response_closed.started
+2025-02-05 10:45:20,062 - httpcore.http11 - DEBUG - response_closed.complete
+2025-02-05 10:45:20,062 - anthropic._base_client - DEBUG - HTTP Response: POST https://api.anthropic.com/v1/messages "200 OK" Headers({'date': 'Wed, 05 Feb 2025 18:45:20 GMT', 'content-type': 'application/json', 'transfer-encoding': 'chunked', 'connection': 'keep-alive', 'anthropic-ratelimit-requests-limit': '50', 'anthropic-ratelimit-requests-remaining': '49', 'anthropic-ratelimit-requests-reset': '2025-02-05T18:45:19Z', 'anthropic-ratelimit-input-tokens-limit': '40000', 'anthropic-ratelimit-input-tokens-remaining': '40000', 'anthropic-ratelimit-input-tokens-reset': '2025-02-05T18:45:19Z', 'anthropic-ratelimit-output-tokens-limit': '8000', 'anthropic-ratelimit-output-tokens-remaining': '8000', 'anthropic-ratelimit-output-tokens-reset': '2025-02-05T18:45:19Z', 'anthropic-ratelimit-tokens-limit': '48000', 'anthropic-ratelimit-tokens-remaining': '48000', 'anthropic-ratelimit-tokens-reset': '2025-02-05T18:45:19Z', 'request-id': 'req_01XTKWc2ZTgJnVHavAWCT3cR', 'via': '1.1 google', 'cf-cache-status': 'DYNAMIC', 'x-robots-tag': 'none', 'server': 'cloudflare', 'cf-ray': '90d50e833c90f7e5-LAX', 'content-encoding': 'gzip'})
+2025-02-05 10:45:20,062 - anthropic._base_client - DEBUG - request_id: req_01XTKWc2ZTgJnVHavAWCT3cR
+2025-02-05 10:45:20,079 - __main__ - INFO - 📞 Found tool calls in response
+2025-02-05 10:45:20,079 - __main__ - ERROR - Error in underwrite
+Traceback (most recent call last):
+  File "/Users/rohitsharma/projects/pdfextractor/main.py", line 153, in underwrite
+    logger.info(f"Executing tool: {tool_call.name}")
+AttributeError: 'dict' object has no attribute 'name'
+2025-02-05 10:45:20,082 - werkzeug - INFO - 127.0.0.1 - - [05/Feb/2025 10:45:20] "[35m[1mPOST /underwrite HTTP/1.1[0m" 500 -
+2025-02-05 10:47:00,770 - httpx - DEBUG - load_ssl_context verify=True cert=None trust_env=True http2=False
+2025-02-05 10:47:00,770 - httpx - DEBUG - load_verify_locations cafile='/Users/rohitsharma/Library/Python/3.9/lib/python/site-packages/certifi/cacert.pem'
+2025-02-05 10:47:00,779 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8080
+ * Running on http://192.168.1.199:8080
+2025-02-05 10:47:00,779 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-02-05 10:47:03,531 - httpx - DEBUG - load_ssl_context verify=True cert=None trust_env=True http2=False
+2025-02-05 10:47:03,531 - httpx - DEBUG - load_verify_locations cafile='/Users/rohitsharma/Library/Python/3.9/lib/python/site-packages/certifi/cacert.pem'
+2025-02-05 10:47:03,535 - anthropic._base_client - DEBUG - Request options: {'method': 'post', 'url': '/v1/messages', 'files': None, 'json_data': {'max_tokens': 1024, 'messages': [{'role': 'user', 'content': 'Bank statements are in the variable pdf_contents. use the tools below to analyze. pass pdf_contents to the tools.\n                    \n                    \n                    1. Call calculate_average_daily_balance() to get the balance\n                    2. Call check_nsf() to analyze NSF fees\n                    \n                    Important: When these functions are called, pass pdf_contents to them.\n                    Do not skip either function call.'}], 'model': 'claude-3-5-sonnet-latest', 'tools': [{'name': 'calculate_average_daily_balance', 'description': 'Calculate the average daily balance from the bank statements provided.', 'input_schema': {'properties': {'file_contents': {'items': {'type': 'object'}, 'type': 'array'}}, 'required': ['file_contents'], 'type': 'object'}}, {'name': 'check_nsf', 'description': 'Check for NSF fees and count from the bank statements provided.', 'input_schema': {'properties': {'file_contents': {'items': {'type': 'object'}, 'type': 'array'}}, 'required': ['file_contents'], 'type': 'object'}}]}}
+2025-02-05 10:47:03,549 - anthropic._base_client - DEBUG - Sending HTTP Request: POST https://api.anthropic.com/v1/messages
+2025-02-05 10:47:03,549 - httpcore.connection - DEBUG - connect_tcp.started host='api.anthropic.com' port=443 local_address=None timeout=None socket_options=None
+2025-02-05 10:47:03,579 - httpcore.connection - DEBUG - connect_tcp.complete return_value=<httpcore._backends.sync.SyncStream object at 0x1069b30a0>
+2025-02-05 10:47:03,579 - httpcore.connection - DEBUG - start_tls.started ssl_context=<ssl.SSLContext object at 0x106b0d660> server_hostname='api.anthropic.com' timeout=None
+2025-02-05 10:47:03,630 - httpcore.connection - DEBUG - start_tls.complete return_value=<httpcore._backends.sync.SyncStream object at 0x1069b3070>
+2025-02-05 10:47:03,630 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-02-05 10:47:03,630 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-02-05 10:47:03,630 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-02-05 10:47:03,630 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-02-05 10:47:03,630 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-02-05 10:47:06,001 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Date', b'Wed, 05 Feb 2025 18:47:05 GMT'), (b'Content-Type', b'application/json'), (b'Transfer-Encoding', b'chunked'), (b'Connection', b'keep-alive'), (b'anthropic-ratelimit-requests-limit', b'50'), (b'anthropic-ratelimit-requests-remaining', b'49'), (b'anthropic-ratelimit-requests-reset', b'2025-02-05T18:47:04Z'), (b'anthropic-ratelimit-input-tokens-limit', b'40000'), (b'anthropic-ratelimit-input-tokens-remaining', b'40000'), (b'anthropic-ratelimit-input-tokens-reset', b'2025-02-05T18:47:04Z'), (b'anthropic-ratelimit-output-tokens-limit', b'8000'), (b'anthropic-ratelimit-output-tokens-remaining', b'8000'), (b'anthropic-ratelimit-output-tokens-reset', b'2025-02-05T18:47:05Z'), (b'anthropic-ratelimit-tokens-limit', b'48000'), (b'anthropic-ratelimit-tokens-remaining', b'48000'), (b'anthropic-ratelimit-tokens-reset', b'2025-02-05T18:47:04Z'), (b'request-id', b'req_01LeXwckLgPQ5C9X8TpEo2jP'), (b'via', b'1.1 google'), (b'cf-cache-status', b'DYNAMIC'), (b'X-Robots-Tag', b'none'), (b'Server', b'cloudflare'), (b'CF-RAY', b'90d51117db4308ae-LAX'), (b'Content-Encoding', b'gzip')])
+2025-02-05 10:47:06,004 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-02-05 10:47:06,004 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-02-05 10:47:06,005 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-02-05 10:47:06,005 - httpcore.http11 - DEBUG - response_closed.started
+2025-02-05 10:47:06,005 - httpcore.http11 - DEBUG - response_closed.complete
+2025-02-05 10:47:06,005 - anthropic._base_client - DEBUG - HTTP Response: POST https://api.anthropic.com/v1/messages "200 OK" Headers({'date': 'Wed, 05 Feb 2025 18:47:05 GMT', 'content-type': 'application/json', 'transfer-encoding': 'chunked', 'connection': 'keep-alive', 'anthropic-ratelimit-requests-limit': '50', 'anthropic-ratelimit-requests-remaining': '49', 'anthropic-ratelimit-requests-reset': '2025-02-05T18:47:04Z', 'anthropic-ratelimit-input-tokens-limit': '40000', 'anthropic-ratelimit-input-tokens-remaining': '40000', 'anthropic-ratelimit-input-tokens-reset': '2025-02-05T18:47:04Z', 'anthropic-ratelimit-output-tokens-limit': '8000', 'anthropic-ratelimit-output-tokens-remaining': '8000', 'anthropic-ratelimit-output-tokens-reset': '2025-02-05T18:47:05Z', 'anthropic-ratelimit-tokens-limit': '48000', 'anthropic-ratelimit-tokens-remaining': '48000', 'anthropic-ratelimit-tokens-reset': '2025-02-05T18:47:04Z', 'request-id': 'req_01LeXwckLgPQ5C9X8TpEo2jP', 'via': '1.1 google', 'cf-cache-status': 'DYNAMIC', 'x-robots-tag': 'none', 'server': 'cloudflare', 'cf-ray': '90d51117db4308ae-LAX', 'content-encoding': 'gzip'})
+2025-02-05 10:47:06,005 - anthropic._base_client - DEBUG - request_id: req_01LeXwckLgPQ5C9X8TpEo2jP
+2025-02-05 10:47:06,021 - __main__ - INFO - 📞 Found tool calls in response
+2025-02-05 10:47:06,021 - __main__ - INFO - Tool call data: {'name': 'calculate_average_daily_balance', 'args': {'file_contents': 'pdf_contents'}, 'id': 'toolu_019dTccnQQFaguVnhLk45YoK', 'type': 'tool_call'}
+2025-02-05 10:47:06,021 - __main__ - INFO - Executing tool: calculate_average_daily_balance
+2025-02-05 10:47:06,026 - __main__ - ERROR - Error in underwrite
+Traceback (most recent call last):
+  File "/Users/rohitsharma/projects/pdfextractor/main.py", line 162, in underwrite
+    balance, balance_details = calculate_average_daily_balance(pdf_contents)
+  File "/Users/rohitsharma/Library/Python/3.9/lib/python/site-packages/langchain_core/_api/deprecation.py", line 181, in warning_emitting_wrapper
+    return wrapped(*args, **kwargs)
+  File "/Users/rohitsharma/Library/Python/3.9/lib/python/site-packages/langchain_core/tools/base.py", line 851, in __call__
+    return self.run(tool_input, callbacks=callbacks)
+  File "/Users/rohitsharma/Library/Python/3.9/lib/python/site-packages/langchain_core/tools/base.py", line 725, in run
+    raise error_to_raise
+  File "/Users/rohitsharma/Library/Python/3.9/lib/python/site-packages/langchain_core/tools/base.py", line 689, in run
+    tool_args, tool_kwargs = self._to_args_and_kwargs(tool_input, tool_call_id)
+  File "/Users/rohitsharma/Library/Python/3.9/lib/python/site-packages/langchain_core/tools/base.py", line 611, in _to_args_and_kwargs
+    tool_input = self._parse_input(tool_input, tool_call_id)
+  File "/Users/rohitsharma/Library/Python/3.9/lib/python/site-packages/langchain_core/tools/base.py", line 532, in _parse_input
+    result = input_args.model_validate(tool_input)
+  File "/Users/rohitsharma/Library/Python/3.9/lib/python/site-packages/pydantic/main.py", line 596, in model_validate
+    return cls.__pydantic_validator__.validate_python(
+pydantic_core._pydantic_core.ValidationError: 1 validation error for calculate_average_daily_balance
+  Input should be a valid dictionary or instance of calculate_average_daily_balance [type=model_type, input_value=[{'type': 'document', 'so...CjIwOTA2NQolJUVPRgo='}}], input_type=list]
+    For further information visit https://errors.pydantic.dev/2.9/v/model_type
+2025-02-05 10:47:06,044 - werkzeug - INFO - 127.0.0.1 - - [05/Feb/2025 10:47:06] "[35m[1mPOST /underwrite HTTP/1.1[0m" 500 -
+2025-02-05 11:02:16,468 - httpx - DEBUG - load_ssl_context verify=True cert=None trust_env=True http2=False
+2025-02-05 11:02:16,468 - httpx - DEBUG - load_verify_locations cafile='/Users/rohitsharma/Library/Python/3.9/lib/python/site-packages/certifi/cacert.pem'
+2025-02-05 11:02:16,477 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8080
+ * Running on http://192.168.1.199:8080
+2025-02-05 11:02:16,477 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-02-05 11:02:19,332 - httpx - DEBUG - load_ssl_context verify=True cert=None trust_env=True http2=False
+2025-02-05 11:02:19,332 - httpx - DEBUG - load_verify_locations cafile='/Users/rohitsharma/Library/Python/3.9/lib/python/site-packages/certifi/cacert.pem'
+2025-02-05 11:02:19,336 - anthropic._base_client - DEBUG - Request options: {'method': 'post', 'url': '/v1/messages', 'files': None, 'json_data': {'max_tokens': 1024, 'messages': [{'role': 'user', 'content': 'Bank statements are in the variable pdf_contents. use the tools below to analyze. pass pdf_contents to the tools.\n                    \n                    \n                    1. Call calculate_average_daily_balance() to get the balance\n                    2. Call check_nsf() to analyze NSF fees\n                    \n                    Important: When these functions are called, pass pdf_contents to them.\n                    Do not skip either function call.'}], 'model': 'claude-3-5-sonnet-latest', 'tools': [{'name': 'calculate_average_daily_balance', 'description': 'Calculate the average daily balance from the bank statements provided.', 'input_schema': {'properties': {'file_contents': {'items': {'type': 'object'}, 'type': 'array'}}, 'required': ['file_contents'], 'type': 'object'}}, {'name': 'check_nsf', 'description': 'Check for NSF fees and count from the bank statements provided.', 'input_schema': {'properties': {'file_contents': {'items': {'type': 'object'}, 'type': 'array'}}, 'required': ['file_contents'], 'type': 'object'}}]}}
+2025-02-05 11:02:19,351 - anthropic._base_client - DEBUG - Sending HTTP Request: POST https://api.anthropic.com/v1/messages
+2025-02-05 11:02:19,351 - httpcore.connection - DEBUG - connect_tcp.started host='api.anthropic.com' port=443 local_address=None timeout=None socket_options=None
+2025-02-05 11:02:19,393 - httpcore.connection - DEBUG - connect_tcp.complete return_value=<httpcore._backends.sync.SyncStream object at 0x107424040>
+2025-02-05 11:02:19,394 - httpcore.connection - DEBUG - start_tls.started ssl_context=<ssl.SSLContext object at 0x107465660> server_hostname='api.anthropic.com' timeout=None
+2025-02-05 11:02:19,438 - httpcore.connection - DEBUG - start_tls.complete return_value=<httpcore._backends.sync.SyncStream object at 0x107424250>
+2025-02-05 11:02:19,438 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-02-05 11:02:19,438 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-02-05 11:02:19,438 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-02-05 11:02:19,438 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-02-05 11:02:19,438 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-02-05 11:02:23,466 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Date', b'Wed, 05 Feb 2025 19:02:23 GMT'), (b'Content-Type', b'application/json'), (b'Transfer-Encoding', b'chunked'), (b'Connection', b'keep-alive'), (b'anthropic-ratelimit-requests-limit', b'50'), (b'anthropic-ratelimit-requests-remaining', b'49'), (b'anthropic-ratelimit-requests-reset', b'2025-02-05T19:02:20Z'), (b'anthropic-ratelimit-input-tokens-limit', b'40000'), (b'anthropic-ratelimit-input-tokens-remaining', b'40000'), (b'anthropic-ratelimit-input-tokens-reset', b'2025-02-05T19:02:21Z'), (b'anthropic-ratelimit-output-tokens-limit', b'8000'), (b'anthropic-ratelimit-output-tokens-remaining', b'8000'), (b'anthropic-ratelimit-output-tokens-reset', b'2025-02-05T19:02:23Z'), (b'anthropic-ratelimit-tokens-limit', b'48000'), (b'anthropic-ratelimit-tokens-remaining', b'48000'), (b'anthropic-ratelimit-tokens-reset', b'2025-02-05T19:02:21Z'), (b'request-id', b'req_01PHESN3Q7XGwnSEnfYa3Pp7'), (b'via', b'1.1 google'), (b'cf-cache-status', b'DYNAMIC'), (b'X-Robots-Tag', b'none'), (b'Server', b'cloudflare'), (b'CF-RAY', b'90d52773ab912f07-LAX'), (b'Content-Encoding', b'gzip')])
+2025-02-05 11:02:23,469 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-02-05 11:02:23,470 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-02-05 11:02:23,470 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-02-05 11:02:23,470 - httpcore.http11 - DEBUG - response_closed.started
+2025-02-05 11:02:23,470 - httpcore.http11 - DEBUG - response_closed.complete
+2025-02-05 11:02:23,471 - anthropic._base_client - DEBUG - HTTP Response: POST https://api.anthropic.com/v1/messages "200 OK" Headers({'date': 'Wed, 05 Feb 2025 19:02:23 GMT', 'content-type': 'application/json', 'transfer-encoding': 'chunked', 'connection': 'keep-alive', 'anthropic-ratelimit-requests-limit': '50', 'anthropic-ratelimit-requests-remaining': '49', 'anthropic-ratelimit-requests-reset': '2025-02-05T19:02:20Z', 'anthropic-ratelimit-input-tokens-limit': '40000', 'anthropic-ratelimit-input-tokens-remaining': '40000', 'anthropic-ratelimit-input-tokens-reset': '2025-02-05T19:02:21Z', 'anthropic-ratelimit-output-tokens-limit': '8000', 'anthropic-ratelimit-output-tokens-remaining': '8000', 'anthropic-ratelimit-output-tokens-reset': '2025-02-05T19:02:23Z', 'anthropic-ratelimit-tokens-limit': '48000', 'anthropic-ratelimit-tokens-remaining': '48000', 'anthropic-ratelimit-tokens-reset': '2025-02-05T19:02:21Z', 'request-id': 'req_01PHESN3Q7XGwnSEnfYa3Pp7', 'via': '1.1 google', 'cf-cache-status': 'DYNAMIC', 'x-robots-tag': 'none', 'server': 'cloudflare', 'cf-ray': '90d52773ab912f07-LAX', 'content-encoding': 'gzip'})
+2025-02-05 11:02:23,471 - anthropic._base_client - DEBUG - request_id: req_01PHESN3Q7XGwnSEnfYa3Pp7
+2025-02-05 11:02:23,485 - __main__ - INFO - 📞 Found tool calls in response
+2025-02-05 11:02:23,486 - __main__ - INFO - Tool call data: {'name': 'calculate_average_daily_balance', 'args': {'file_contents': 'pdf_contents'}, 'id': 'toolu_01McQVZ1qRmz9MxAkhvy19Yp', 'type': 'tool_call'}
+2025-02-05 11:02:23,486 - __main__ - INFO - Executing tool: calculate_average_daily_balance
+2025-02-05 11:02:23,491 - __main__ - ERROR - Error in underwrite
+Traceback (most recent call last):
+  File "/Users/rohitsharma/projects/pdfextractor/main.py", line 162, in underwrite
+    balance, balance_details = calculate_average_daily_balance(pdf_contents)
+  File "/Users/rohitsharma/Library/Python/3.9/lib/python/site-packages/langchain_core/_api/deprecation.py", line 181, in warning_emitting_wrapper
+    return wrapped(*args, **kwargs)
+  File "/Users/rohitsharma/Library/Python/3.9/lib/python/site-packages/langchain_core/tools/base.py", line 851, in __call__
+    return self.run(tool_input, callbacks=callbacks)
+  File "/Users/rohitsharma/Library/Python/3.9/lib/python/site-packages/langchain_core/tools/base.py", line 725, in run
+    raise error_to_raise
+  File "/Users/rohitsharma/Library/Python/3.9/lib/python/site-packages/langchain_core/tools/base.py", line 689, in run
+    tool_args, tool_kwargs = self._to_args_and_kwargs(tool_input, tool_call_id)
+  File "/Users/rohitsharma/Library/Python/3.9/lib/python/site-packages/langchain_core/tools/base.py", line 611, in _to_args_and_kwargs
+    tool_input = self._parse_input(tool_input, tool_call_id)
+  File "/Users/rohitsharma/Library/Python/3.9/lib/python/site-packages/langchain_core/tools/base.py", line 532, in _parse_input
+    result = input_args.model_validate(tool_input)
+  File "/Users/rohitsharma/Library/Python/3.9/lib/python/site-packages/pydantic/main.py", line 596, in model_validate
+    return cls.__pydantic_validator__.validate_python(
+pydantic_core._pydantic_core.ValidationError: 1 validation error for calculate_average_daily_balance
+  Input should be a valid dictionary or instance of calculate_average_daily_balance [type=model_type, input_value=[{'type': 'document', 'so...CjIwOTA2NQolJUVPRgo='}}], input_type=list]
+    For further information visit https://errors.pydantic.dev/2.9/v/model_type
+2025-02-05 11:02:23,506 - werkzeug - INFO - 127.0.0.1 - - [05/Feb/2025 11:02:23] "[35m[1mPOST /underwrite HTTP/1.1[0m" 500 -
