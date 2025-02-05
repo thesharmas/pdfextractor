@@ -127,35 +127,49 @@ def underwrite():
         return jsonify({"error": "No file paths provided"}), 400
 
     try:
+        global file_content
         file_content = ContentService.prepare_file_content(file_paths)
         
-        # Use tools through LLM
-        result = llm.invoke("""
-            Use the tools provided to:
-            1. Calculate the average daily balance
-            2. Check for NSF fees
-            Return the results in a clear, structured format.
-            """)
+        # Create a message that includes the file_content and explicit instructions
+    
+        # Invoke with the message and wait for both tool calls
+        result = llm.invoke("Analyze the bank statements by using the tools provided to check for NSF fees and calculate the average daily balance. for the tools use the file_content variable as the argument to the tool that contains the data.")
         
-        # Convert result to string if it's a list
-        result_text = '\n'.join(result) if isinstance(result, list) else str(result)
+        # Parse the results
+        if isinstance(result, list):
+            result_text = '\n'.join(result)
+        else:
+            result_text = str(result)
+            
         lines = result_text.split('\n')
         
+        # Initialize variables
         balance = None
         nsf_fees = None
         nsf_count = None
         
+        # Parse each line for results
         for line in lines:
+            line = line.strip()
             if line.startswith('FINAL_AMOUNT:'):
-                balance = float(line.replace('FINAL_AMOUNT:', '').strip())
+                try:
+                    balance = float(line.replace('FINAL_AMOUNT:', '').strip())
+                except ValueError:
+                    pass
             elif line.startswith('NSF_COUNT:'):
-                nsf_count = int(line.replace('NSF_COUNT:', '').strip())
+                try:
+                    nsf_count = int(line.replace('NSF_COUNT:', '').strip())
+                except ValueError:
+                    pass
             elif line.startswith('NSF_FEES:'):
-                nsf_fees = float(line.replace('NSF_FEES:', '').strip())
+                try:
+                    nsf_fees = float(line.replace('NSF_FEES:', '').strip())
+                except ValueError:
+                    pass
 
         response_data = {
-            "analysis": result_text,  # Full analysis from Claude
             "metrics": {
+                "analysis": result_text,
                 "average_daily_balance": balance,
                 "nsf_information": {
                     "total_fees": nsf_fees,
@@ -163,6 +177,10 @@ def underwrite():
                 }
             }
         }
+        
+        # Validate that we got all the data
+        if None in [balance, nsf_fees, nsf_count]:
+            response_data["warnings"] = "Some data could not be parsed from the response"
         
         formatted_response = json.dumps(response_data, 
             indent=4,
