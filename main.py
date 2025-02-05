@@ -48,7 +48,7 @@ genai.configure(api_key=gemini_api_key)
 
 @tool
 def calculate_average_daily_balance(file_contents: List[Dict]) -> Tuple[float, str]:
-    """Calculate the average daily balance from the bank statements you've already analyzed."""
+    """Calculate the average daily balance from the bank statements provided."""
     prompt = """
     Based on the bank statements I've shown you:
     1. Calculate the average daily balance
@@ -74,7 +74,7 @@ def calculate_average_daily_balance(file_contents: List[Dict]) -> Tuple[float, s
 
 @tool
 def check_nsf(file_contents: List[Dict]) -> Tuple[float, int, str]:
-    """Check for NSF fees and count from the bank statements you've already analyzed."""
+    """Check for NSF fees and count from the bank statements provided."""
     prompt = """
     Based on the bank statements I've shown you:
     1. Find all NSF (Non-Sufficient Funds) fees
