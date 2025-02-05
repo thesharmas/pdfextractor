@@ -11,11 +11,11 @@ import base64
 from io import BytesIO
 import json
 from typing import List, Tuple
+from langchain_core.tools import tool
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage
 from app.services.content_service import ContentService
 from typing import List, Dict, Any, Tuple
-from langchain.tools import tool 
 import logging
 
 # Set up logging
