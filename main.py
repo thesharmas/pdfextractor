@@ -47,7 +47,7 @@ genai.configure(api_key=gemini_api_key)
 
 
 @tool
-def calculate_average_daily_balance() -> Tuple[float, str]:
+def calculate_average_daily_balance(file_contents: List[Dict]) -> Tuple[float, str]:
     """Calculate the average daily balance from the bank statements you've already analyzed."""
     prompt = """
     Based on the bank statements I've shown you:
@@ -58,7 +58,7 @@ def calculate_average_daily_balance() -> Tuple[float, str]:
     """
     
     # No need for ContentService since LLM already has the data
-    messages = [HumanMessage(content=prompt)]
+    messages = [HumanMessage(content=file_contents + [{"type": "text", "text": prompt}])]    
     response = claude.invoke(messages)
     
     # Extract the final amount
@@ -73,7 +73,7 @@ def calculate_average_daily_balance() -> Tuple[float, str]:
         raise ValueError(f"Could not parse response: {response.content}")
 
 @tool
-def check_nsf() -> Tuple[float, int, str]:
+def check_nsf(file_contents: List[Dict]) -> Tuple[float, int, str]:
     """Check for NSF fees and count from the bank statements you've already analyzed."""
     prompt = """
     Based on the bank statements I've shown you:
@@ -86,7 +86,7 @@ def check_nsf() -> Tuple[float, int, str]:
     NSF_FEES:70.00
     """
     
-    messages = [HumanMessage(content=prompt)]
+    messages = [HumanMessage(content=file_contents + [{"type": "text", "text": prompt}])]
     response = claude.invoke(messages)
     
     # Extract both NSF count and fees
@@ -123,52 +123,18 @@ def underwrite():
         # Debug: Log file paths
         logger.debug(f"Processing files: {file_paths}")
         
-        pdf_contents = []
-        for file_path in file_paths:
-            with open(file_path, 'rb') as file:
-                pdf_content = base64.b64encode(file.read()).decode('utf-8')
-                # Debug: Log first 100 chars of encoded content
-                logger.debug(f"PDF content preview for {file_path}: {pdf_content[:100]}...")
-                
-                pdf_contents.append({
-                    "type": "document",
-                    "source": {
-                        "type": "base64",
-                        "media_type": "application/pdf",
-                        "data": pdf_content
-                    }
-                })
-        
+        pdf_contents = ContentService.prepare_file_content(file_paths)
         logger.debug(f"Number of PDFs processed: {len(pdf_contents)}")
         
-        # Create initial message with PDFs
-        message = HumanMessage(
-            content=[
-                {
-                    "type": "text",
-                    "text": """Please analyze these bank statements. I'll ask you specific questions about them after you've reviewed them."""
-                },
-                *pdf_contents
-            ]
-        )
-        
-        logger.debug("Message structure: %s", json.dumps(message.content[0], indent=2))
         
         # Initialize LLM with tools
         llm = ChatAnthropic(model="claude-3-5-sonnet-latest")
         llm = llm.bind_tools([calculate_average_daily_balance, check_nsf])
         
-        logger.debug("Sending initial request to Claude...")
-        initial_response = llm.invoke([message])
-        logger.debug("Initial response: %s...", str(initial_response)[:200])
         
         # Now ask LLM to use the tools
         analysis_message = HumanMessage(
-            content="""Now that you've reviewed the statements, please:
-            1. Use calculate_average_daily_balance() to get the balance
-            2. Use check_nsf() to analyze NSF fees
-            
-            Present the results in a clear format."""
+            content="""use the tools to analyze the bank statements and present the results in a clear format. the files are in pdf_contents"""
         )
         
         result = llm.invoke([analysis_message])
