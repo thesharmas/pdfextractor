@@ -92,10 +92,12 @@ def underwrite():
             tool = tool.strip().lower()
             if 'calculate_average_daily_balance' in tool:
                 logger.info("Calling calculate_average_daily_balance")
-                balance, balance_details = calculate_average_daily_balance(pdf_contents)
+                balance, balance_details = calculate_average_daily_balance({
+                "file_contents": pdf_contents})
             elif 'check_nsf' in tool:
                 logger.info("Calling check_nsf")
-                nsf_fees, nsf_count, nsf_details = check_nsf(pdf_contents)
+                nsf_fees, nsf_count, nsf_details = check_nsf({
+                "file_contents": pdf_contents})
         
         response_data = {
             "metrics": {
