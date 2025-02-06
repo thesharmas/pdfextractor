@@ -16,13 +16,21 @@ from app.services.content_service import ContentService
 from app.tools.analysis_tools import calculate_average_daily_balance, check_nsf, set_llm
 from app.services.llm_factory import LLMFactory
 from app.config import Config, LLMProvider
+import json
 
 # Configure logging
 logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+
+    # Set httpcore to only show WARNING and above
+logging.getLogger('httpcore').setLevel(logging.WARNING)
+logging.getLogger('httpx').setLevel(logging.WARNING)
+    
+    # Get our application logger
+logger = logging.getLogger('app')
+logger.setLevel(logging.INFO)
 
 # Add near the top of the file, after other imports
 content_service = ContentService()
@@ -43,33 +51,45 @@ app = Flask(__name__)
 
 @app.route('/underwrite', methods=['POST'])
 def underwrite():
+    logger.info("📥 Received underwrite request")
+    logger.info(f"Request JSON: {json.dumps(request.json, indent=2)}")
+    
     debug_mode = request.json.get('debug', False)
     file_paths = request.json.get('file_paths', [])
-    # Get optional provider from request
     provider = request.json.get('provider')
     
+    logger.info(f"Debug mode: {debug_mode}")
+    logger.info(f"File paths: {file_paths}")
+    logger.info(f"Provider requested: {provider}")
+    logger.info(f"Provider type: {type(provider)}")
+    
     if not file_paths:
+        logger.error("No file paths provided")
         return jsonify({"error": "No file paths provided"}), 400
 
     try:
         # Create LLM with optional provider override
         if provider:
             try:
-                provider = LLMProvider(provider.upper())  # Convert string to enum
-                logger.info(f"🔄 Overriding default provider with: {provider}")
+                logger.info(f"Converting provider string '{provider}' to enum")
+                logger.info(f"Valid providers: {[p.value for p in LLMProvider]}")
+                provider = LLMProvider(provider)
+                logger.info(f"Provider converted to: {provider}")
                 llm = LLMFactory.create_llm(provider=provider)
-            except ValueError:
+            except ValueError as e:
+                logger.error(f"Invalid provider error: {str(e)}")
                 return jsonify({
                     "error": f"Invalid provider: {provider}. Valid options are: {[p.value for p in LLMProvider]}"
                 }), 400
         else:
-            llm = LLMFactory.create_llm()  # Use default from config
+            logger.info(f"Using default provider from config: {Config.LLM_PROVIDER}")
+            llm = LLMFactory.create_llm()
 
         llm.set_tools([calculate_average_daily_balance, check_nsf])
 
         # Process PDFs once and store in the LLM
-        content_service = ContentService()
-        pdf_contents = content_service.prepare_file_content(file_paths)
+        merged_pdf_path = content_service.merge_pdfs(file_paths)
+        pdf_contents = content_service.prepare_file_content([merged_pdf_path])
         llm.set_file_contents(pdf_contents)
         set_llm(llm)
         

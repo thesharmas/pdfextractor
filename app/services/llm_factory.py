@@ -1,8 +1,13 @@
 import logging
 from typing import Any, Union, List, Dict
 from langchain_anthropic import ChatAnthropic
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, AIMessage
 from app.config import Config, LLMProvider
+import json
+import base64
+import time
+from anthropic import Anthropic, RateLimitError
+from google.generativeai import types
 
 logger = logging.getLogger(__name__)
 
@@ -11,13 +16,22 @@ class LLMWrapper:
     def __init__(self):
         self.file_contents = None
         self.messages = []
+        self.tools = []
+
+    def set_file_contents(self, contents: List[Dict[str, Any]]) -> None:
+        """Set the file contents and verify they were received."""
+        self.file_contents = contents
         
-    def set_file_contents(self, file_contents):
-        """Store file contents and initialize conversation"""
-        logger.info("🔄 Initializing LLM conversation with PDF contents")
-        self.file_contents = file_contents
-        self.messages = list(file_contents)
-        logger.info(f"📄 PDF content added to conversation (size: {len(file_contents)} items)")
+        # Verify content was received
+        verification_prompt = """I've just shared some bank statements with you. 
+        To verify you received them correctly:
+        1. How many documents did you receive?
+        2. Can you see any bank transaction data?
+        Please be specific but brief."""
+        
+        logger.info("🔍 Verifying PDF content reception...")
+        verification_response = self.get_response(prompt=verification_prompt)
+        logger.info(f"✅ Content verification: {verification_response}")
 
     def set_tools(self, tools: List[Any]):
         """Configure tools for the LLM"""
@@ -26,66 +40,119 @@ class LLMWrapper:
         return self
 
     def _bind_tools(self, tools: List[Any]):
-        """To be implemented by specific LLM wrappers"""
-        raise NotImplementedError
+        """Base implementation for binding tools"""
+        logger.info(f"🔧 Binding tools: {[t.name for t in tools]}")
+        self.tools = tools
 
     def get_response(self, prompt: str = None) -> str:
         raise NotImplementedError
 
 class ClaudeWrapper(LLMWrapper):
+    MAX_RETRIES = 3
+    RETRY_DELAY = 5  # seconds
+    
     def __init__(self, model: ChatAnthropic):
         super().__init__()
         self.model = model
-        logger.info("🤖 Initialized Claude LLM wrapper")
-
-    def _bind_tools(self, tools: List[Any]):
-        """Bind tools for Claude"""
-        logger.info("🔧 Binding tools for Claude")
-        self.model = self.model.bind_tools(tools)
+        logger.info("�� Initialized Claude wrapper")
 
     def get_response(self, prompt: str = None) -> str:
         if prompt:
             logger.info("➕ Adding new prompt to conversation")
-            logger.debug(f"Prompt: {prompt[:100]}...")
-            self.messages.append({"type": "text", "text": prompt})
-        
-        logger.info(f"📨 Sending conversation to Claude (messages: {len(self.messages)})")
-        result = self.model.invoke(self.messages)
-        
-        logger.info("📥 Received response from Claude")
-        logger.debug(f"Response: {result.content[:100]}...")
-        self.messages.append({"type": "text", "text": result.content})
-        return result.content
+            logger.debug(f"Prompt preview: {str(prompt)[:100]}...")
+            
+            message_content = []
+            
+            # Add file contents first if they exist
+            if self.file_contents:
+                for content in self.file_contents:
+                    try:
+                        with open(content['file_path'], 'rb') as file:
+                            pdf_data = base64.b64encode(file.read()).decode('utf-8')
+                            
+                        message_content.append({
+                            "type": "document",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "application/pdf",
+                                "data": pdf_data
+                            },
+                            "cache_control": {"type": "ephemeral"}
+                        })
+                    except Exception as e:
+                        logger.error(f"Error processing PDF: {str(e)}")
+            
+            # Add prompt
+            message_content.append({
+                "type": "text",
+                "text": prompt
+            })
+            
+            self.messages = [{
+                "role": "user",
+                "content": message_content
+            }]
+            
+        logger.info(f"📨 Sending conversation to Claude")
+        try:
+            result = self.model.invoke(self.messages)
+            logger.info("✅ Claude response received successfully")
+            
+            # Handle different response types
+            if isinstance(result, AIMessage):
+                return result.content
+            elif hasattr(result, 'text'):
+                return result.text
+            else:
+                return str(result)
+                
+        except RateLimitError as e:
+            logger.error(f"🚫 Rate limit hit: {str(e)}")
+            logger.error(f"Rate limit details: {e.response.headers if hasattr(e, 'response') else 'No details'}")
+            raise
+        except Exception as e:
+            logger.error(f"❌ Error from Claude: {str(e)}")
+            raise
 
 class GeminiWrapper(LLMWrapper):
     def __init__(self, model: Any):
         super().__init__()
         self.model = model
-        logger.info("🤖 Initialized Gemini LLM wrapper")
-
-    def _bind_tools(self, tools: List[Any]):
-        """Configure tools for Gemini"""
-        logger.info("🔧 Binding tools for Gemini")
-        self.tools = [{
-            "function_declarations": [{
-                "name": tool.name,
-                "description": tool.description
-            } for tool in tools]
-        }]
+        self.messages = []
+        logger.info("�� Initialized Gemini wrapper")
 
     def get_response(self, prompt: str = None) -> str:
         if prompt:
             logger.info("➕ Adding new prompt to conversation")
             logger.debug(f"Prompt: {prompt[:100]}...")
-            self.messages.append(prompt)
             
-        logger.info(f"📨 Sending conversation to Gemini (messages: {len(self.messages)})")
-        result = self.model.generate_content(self.messages)
-        
-        logger.info("📥 Received response from Gemini")
-        logger.debug(f"Response: {result.text[:100]}...")
-        self.messages.append(result.text)
-        return result.text
+            contents = []
+            
+            # Add file contents first if they exist
+            if self.file_contents:
+                for content in self.file_contents:
+                    file_path = content['file_path']
+                    logger.info(f"📄 Processing file: {file_path}")
+                    
+                    try:
+                        with open(file_path, 'rb') as file:
+                            contents.append({
+                                "mime_type": "application/pdf",
+                                "data": file.read()
+                            })
+                    except Exception as e:
+                        logger.error(f"Error processing PDF for Gemini: {str(e)}")
+                        logger.error(f"Attempted file path: {file_path}")
+            
+            # Add prompt
+            contents.append(prompt)
+            
+            logger.info(f"📨 Sending to Gemini with {len(contents)-1} PDFs")
+            result = self.model.generate_content(contents)
+            
+            logger.info("📥 Received response from Gemini")
+            logger.debug(f"Response: {result.text[:100]}...")
+            return result.text
 
 class LLMFactory:
     @staticmethod

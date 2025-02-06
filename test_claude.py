@@ -105,8 +105,7 @@ def main():
         "./Bank5.pdf",
         "./Bank6.pdf",
         "./Bank8.pdf",
-        "./Bank10.pdf",
-        "./Bank11.pdf"
+        "./Bank10.pdf"
     ]
     
     # Verify files exist
@@ -114,14 +113,12 @@ def main():
         if not os.path.exists(path):
             logger.warning(f"⚠️ Warning: File not found: {path}")
     
-    logger.info("\n🚀 Testing with Gemini...")
-    gemini_response = test_underwrite(file_paths, provider=LLMProvider.GEMINI)
+    
     
     logger.info("\n🚀 Testing with Claude...")
     claude_response = test_underwrite(file_paths, provider=LLMProvider.CLAUDE)
     
-    # Compare the responses
-    compare_responses(gemini_response, claude_response)
+  
 
 if __name__ == "__main__":
     main()

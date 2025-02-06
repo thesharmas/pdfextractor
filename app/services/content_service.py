@@ -3,6 +3,11 @@ import base64
 import os
 import google.generativeai as genai
 from app.config import Config, LLMProvider
+import logging
+import traceback
+from PyPDF2 import PdfMerger
+
+logger = logging.getLogger(__name__)
 
 class ContentService:
     def __init__(self):
@@ -10,17 +15,24 @@ class ContentService:
         if Config.LLM_PROVIDER == LLMProvider.GEMINI:
             genai.configure(api_key=Config.GOOGLE_API_KEY)
 
-    def prepare_file_content(self, file_paths: List[str]) -> Union[List[Dict], List[Any]]:
-        """
-        Prepares file content based on the LLM provider.
-        Returns either a list of dicts for Claude or a list of Gemini file objects.
-        """
-        if Config.LLM_PROVIDER == LLMProvider.CLAUDE:
-            return self._prepare_for_claude(file_paths)
-        elif Config.LLM_PROVIDER == LLMProvider.GEMINI:
-            return self._prepare_for_gemini(file_paths)
-        else:
-            raise ValueError(f"Unsupported LLM provider: {Config.LLM_PROVIDER}")
+    def prepare_file_content(self, file_paths: List[str]) -> List[Dict[str, Any]]:
+        logger.info("🔄 Preparing file content...")
+        contents = []
+        
+        for file_path in file_paths:
+            try:
+                logger.info(f"�� Processing file: {file_path}")
+                contents.append({
+                    "type": "text",
+                    "file_path": file_path  # Just pass the file path
+                })
+                
+            except Exception as e:
+                logger.error(f"❌ Error processing file {file_path}: {str(e)}")
+                logger.error(traceback.format_exc())
+            
+        logger.info(f"✅ Processed {len(contents)} files")
+        return contents
 
     def _prepare_for_claude(self, file_paths: List[str]) -> List[Dict]:
         """Prepares content in Claude's format"""
@@ -69,5 +81,30 @@ class ContentService:
             return file_contents + [prompt_dict]  # Gemini expects prompt at the end
         else:
             raise ValueError(f"Unsupported LLM provider: {Config.LLM_PROVIDER}")
+
+    def merge_pdfs(self, file_paths: List[str], output_path: str = "merged.pdf") -> str:
+        """Merge multiple PDFs into one file"""
+        logger.info(f"🔄 Merging {len(file_paths)} PDFs...")
+        
+        merger = PdfMerger()
+        
+        try:
+            # Add each PDF to the merger
+            for file_path in file_paths:
+                logger.info(f"📄 Adding file: {file_path}")
+                merger.append(file_path)
+            
+            # Write the merged PDF
+            logger.info(f"💾 Writing merged PDF to: {output_path}")
+            merger.write(output_path)
+            merger.close()
+            
+            logger.info("✅ PDF merge complete")
+            return output_path
+            
+        except Exception as e:
+            logger.error(f"❌ Error merging PDFs: {str(e)}")
+            logger.error(traceback.format_exc())
+            raise
 
    
