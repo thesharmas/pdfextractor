@@ -13,7 +13,7 @@ class Config:
     
     # Model configurations
     CLAUDE_MODEL = "claude-3-5-sonnet-latest"
-    GEMINI_MODEL = "gemini-1.5-pro"
+    GEMINI_MODEL = "gemini-2.0-flash-lite-preview-02-05"
     
     # API Keys
     ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
