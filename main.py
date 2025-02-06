@@ -13,7 +13,7 @@ from typing import List, Dict, Any, Tuple
 import logging
 from pydantic import BaseModel
 from app.services.content_service import ContentService
-from app.tools.analysis_tools import calculate_average_daily_balance, check_nsf
+from app.tools.analysis_tools import calculate_average_daily_balance, check_nsf, set_llm
 from app.services.llm_factory import LLMFactory
 from app.config import Config, LLMProvider
 
@@ -50,61 +50,30 @@ def underwrite():
         return jsonify({"error": "No file paths provided"}), 400
 
     try:
-        # Create orchestrator LLM using factory
-       
-        orchestrator_llm = LLMFactory.create_llm()
-        if Config.LLM_PROVIDER == LLMProvider.CLAUDE:
-            orchestrator_llm = orchestrator_llm.bind_tools([calculate_average_daily_balance, check_nsf])
-        else:
-            orchestrator_llm.tools = [{
-                "function_declarations": [{
-                    "name": "calculate_average_daily_balance",
-                    "description": "Calculate the average daily balance from bank statements",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "file_contents": {
-                                "type": "array",
-                                "description": "List of bank statement contents"
-                            }
-                        }
-                    }
-                }, {
-                    "name": "check_nsf",
-                    "description": "Check for NSF fees in bank statements",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "file_contents": {
-                                "type": "array",
-                                "description": "List of bank statement contents"
-                            }
-                        }
-                    }
-                }]
-            }]
-            
+        # Create LLM and configure tools
+        llm = LLMFactory.create_llm()
+        llm.set_tools([calculate_average_daily_balance, check_nsf])
 
-        
-        # Process PDFs using the correct method
+        # Process PDFs once and store in the LLM
         content_service = ContentService()
         pdf_contents = content_service.prepare_file_content(file_paths)
+        llm.set_file_contents(pdf_contents)
+        set_llm(llm)
         
-        # Ask Claude which tools to use
-        orchestration_prompt = """I have bank statements in pdf_contents. 
+        # Ask which tools to use
+        orchestration_prompt = """I have bank statements provided above. 
         Tell me which of these tools I should call to analyze them:
         - calculate_average_daily_balance()
         - check_nsf()
         
         Just list the tool names you recommend, one per line."""
         
-        result_content = orchestrator_llm.get_response(pdf_contents, orchestration_prompt)
+        result_content = llm.get_response(prompt=orchestration_prompt)
         logger.info("Orchestration response: %s", result_content)
         
         # Parse recommended analyses
         recommended_analyses = result_content.split('\n')
         
-        # Track metrics
         balance = None
         balance_details = None
         nsf_fees = None
@@ -115,12 +84,11 @@ def underwrite():
             analysis = analysis.strip().lower()
             if 'average' in analysis or 'balance' in analysis:
                 logger.info("Calling calculate_average_daily_balance")
-                balance, balance_details = calculate_average_daily_balance({
-                "file_contents": pdf_contents})
+                balance, balance_details = calculate_average_daily_balance("None")
             elif 'nsf' in analysis or 'non-sufficient' in analysis:
                 logger.info("Calling check_nsf")
-                nsf_fees, nsf_count, nsf_details = check_nsf({
-                "file_contents": pdf_contents})
+                nsf_fees, nsf_count, nsf_details = check_nsf("None")
+
         response_data = {
             "metrics": {
                 "average_daily_balance": {
@@ -140,11 +108,7 @@ def underwrite():
         }
 
         return jsonify(response_data)
-        
-        
-        
-        
-       
+
     except Exception as e:
         logger.error("Error in underwrite", exc_info=True)
         return jsonify({
