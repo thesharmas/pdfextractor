@@ -4,6 +4,8 @@ from langchain_core.messages import HumanMessage
 from langchain_core.tools import tool
 from app.services.content_service import ContentService
 from app.services.llm_factory import LLMFactory
+from app.config import Config, LLMProvider
+
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +15,7 @@ def calculate_average_daily_balance(file_contents: List[Dict]) -> Tuple[float, s
     logger.info("🔧 Tool calculate_average_daily_balance called")
     try:
         analysis_llm = LLMFactory.create_llm()
-        content_service = ContentService()
+        
         
         prompt = """
         Analyze these bank statements and calculate the average daily balance.
@@ -26,17 +28,13 @@ def calculate_average_daily_balance(file_contents: List[Dict]) -> Tuple[float, s
         FINAL_AMOUNT:1234.56
         """
         
-        analysis_content = content_service.process_with_prompt(file_contents, prompt)
-        messages = [HumanMessage(content=analysis_content)]
+        response_text = analysis_llm.get_response(file_contents, prompt)
+
+
+        logger.debug("Raw response object: %s", response_text)        
+        logger.debug("Processed content: %s", response_text)
         
-        response = analysis_llm.invoke(messages)
-        logger.debug("Raw response object: %s", response)
-        logger.debug("Response content type: %s", type(response.content))
-        
-        content = response.content if isinstance(response.content, str) else str(response.content)
-        logger.debug("Processed content: %s", content)
-        
-        lines = content.split('\n')
+        lines = response_text.split('\n')
         for line in lines:
             line = line.strip()
             logger.debug("Processing line: %s", line)
@@ -46,13 +44,13 @@ def calculate_average_daily_balance(file_contents: List[Dict]) -> Tuple[float, s
                     amount_str = line.replace('FINAL_AMOUNT:', '').strip()
                     amount = float(amount_str)
                     logger.info(f"Found amount: {amount}")
-                    return amount, content
+                    return amount, response_text
                 except ValueError as e:
                     logger.error(f"Failed to parse amount from line: {line}")
                     raise ValueError(f"Invalid amount format in: {line}")
                 
         logger.error("No FINAL_AMOUNT found in response")
-        logger.debug("Response content: %s", content)
+        logger.debug("Response content: %s", response_text)
         raise ValueError("No FINAL_AMOUNT found in response")
     except Exception as e:
         logger.error("Tool error: %s", str(e))
@@ -65,7 +63,7 @@ def check_nsf(file_contents: List[Dict]) -> Tuple[float, int, str]:
     logger.info("🔧 Tool check_nsf called")
     try:
         analysis_llm = LLMFactory.create_llm()
-        content_service = ContentService()
+    
         
         prompt = """
         Analyze these bank statements for NSF (Non-Sufficient Funds) fees.
@@ -79,17 +77,13 @@ def check_nsf(file_contents: List[Dict]) -> Tuple[float, int, str]:
         NSF_FEES:105.00
         """
         
-        analysis_content = content_service.process_with_prompt(file_contents, prompt)
-        messages = [HumanMessage(content=analysis_content)]
+        response_text = analysis_llm.get_response(file_contents, prompt)
+
+
+        logger.debug("Raw response object: %s", response_text)        
+        logger.debug("Processed content: %s", response_text)
         
-        response = analysis_llm.invoke(messages)
-        logger.debug("Raw response object: %s", response)
-        logger.debug("Response content type: %s", type(response.content))
-        
-        content = response.content if isinstance(response.content, str) else str(response.content)
-        logger.debug("Processed content: %s", content)
-        
-        lines = content.split('\n')
+        lines = response_text.split('\n')
         nsf_count = None
         nsf_fees = None
         
@@ -114,10 +108,10 @@ def check_nsf(file_contents: List[Dict]) -> Tuple[float, int, str]:
                 
         if nsf_count is None or nsf_fees is None:
             logger.error("Missing NSF info in response")
-            logger.debug("Response content: %s", content)
+            logger.debug("Response content: %s", response_text)
             raise ValueError("Missing NSF count or fees in response")
             
-        return nsf_fees, nsf_count, content
+        return nsf_fees, nsf_count, response_text
     except Exception as e:
         logger.error("Tool error: %s", str(e))
         logger.error("Full traceback:", exc_info=True)

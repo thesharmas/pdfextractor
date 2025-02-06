@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from app.services.content_service import ContentService
 from app.tools.analysis_tools import calculate_average_daily_balance, check_nsf
 from app.services.llm_factory import LLMFactory
+from app.config import Config, LLMProvider
 
 # Configure logging
 logging.basicConfig(
@@ -36,10 +37,7 @@ def get_gemini_api_key():
     return api_key
 
 app = Flask(__name__)
-api_key = get_api_key()
-claude = anthropic.Client(api_key=api_key)
-gemini_api_key = get_gemini_api_key()
-genai.configure(api_key=gemini_api_key)
+
 
 
 
@@ -53,8 +51,40 @@ def underwrite():
 
     try:
         # Create orchestrator LLM using factory
+       
         orchestrator_llm = LLMFactory.create_llm()
-        orchestrator_llm = orchestrator_llm.bind_tools([calculate_average_daily_balance, check_nsf])
+        if Config.LLM_PROVIDER == LLMProvider.CLAUDE:
+            orchestrator_llm = orchestrator_llm.bind_tools([calculate_average_daily_balance, check_nsf])
+        else:
+            orchestrator_llm.tools = [{
+                "function_declarations": [{
+                    "name": "calculate_average_daily_balance",
+                    "description": "Calculate the average daily balance from bank statements",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "file_contents": {
+                                "type": "array",
+                                "description": "List of bank statement contents"
+                            }
+                        }
+                    }
+                }, {
+                    "name": "check_nsf",
+                    "description": "Check for NSF fees in bank statements",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "file_contents": {
+                                "type": "array",
+                                "description": "List of bank statement contents"
+                            }
+                        }
+                    }
+                }]
+            }]
+            
+
         
         # Process PDFs using the correct method
         content_service = ContentService()
@@ -63,16 +93,16 @@ def underwrite():
         # Ask Claude which tools to use
         orchestration_prompt = """I have bank statements in pdf_contents. 
         Tell me which of these tools I should call to analyze them:
-        - calculate_average_daily_balance(file_contents)
-        - check_nsf(file_contents)
+        - calculate_average_daily_balance()
+        - check_nsf()
         
         Just list the tool names you recommend, one per line."""
         
-        orchestration_content = content_service.process_with_prompt(pdf_contents, orchestration_prompt)
-        orchestration_message = HumanMessage(content=orchestration_content)
+        result_content = orchestrator_llm.get_response(pdf_contents, orchestration_prompt)
+        logger.info("Orchestration response: %s", result_content)
         
-        result = orchestrator_llm.invoke([orchestration_message])
-        logger.info("Orchestration response: %s", str(result))
+        # Parse recommended analyses
+        recommended_analyses = result_content.split('\n')
         
         # Track metrics
         balance = None
@@ -81,17 +111,16 @@ def underwrite():
         nsf_count = None
         nsf_details = None
         
-        # Parse recommended tools and call them
-        recommended_tools = str(result.content).split('\n')
-        for tool in recommended_tools:
-            tool = tool.strip().lower()
-            if 'calculate_average_daily_balance' in tool:
+        for analysis in recommended_analyses:
+            analysis = analysis.strip().lower()
+            if 'average' in analysis or 'balance' in analysis:
                 logger.info("Calling calculate_average_daily_balance")
-                balance, balance_details = calculate_average_daily_balance(pdf_contents)
-            elif 'check_nsf' in tool:
+                balance, balance_details = calculate_average_daily_balance({
+                "file_contents": pdf_contents})
+            elif 'nsf' in analysis or 'non-sufficient' in analysis:
                 logger.info("Calling check_nsf")
-                nsf_fees, nsf_count, nsf_details = check_nsf(pdf_contents)
-        
+                nsf_fees, nsf_count, nsf_details = check_nsf({
+                "file_contents": pdf_contents})
         response_data = {
             "metrics": {
                 "average_daily_balance": {
@@ -104,13 +133,17 @@ def underwrite():
                     "details": nsf_details
                 }
             },
-            "orchestration": str(result.content),
+            "orchestration": result_content,
             "debug": {
                 "files_processed": len(pdf_contents)
             }
         }
 
         return jsonify(response_data)
+        
+        
+        
+        
        
     except Exception as e:
         logger.error("Error in underwrite", exc_info=True)
