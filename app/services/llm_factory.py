@@ -21,7 +21,7 @@ class LLMWrapper:
 
     def set_tools(self, tools: List[Any]):
         """Configure tools for the LLM"""
-        logger.info(f"�� Setting tools: {[t.name for t in tools]}")
+        logger.info(f"🔧 Setting tools: {[t.name for t in tools]}")
         self._bind_tools(tools)
         return self
 
@@ -89,20 +89,24 @@ class GeminiWrapper(LLMWrapper):
 
 class LLMFactory:
     @staticmethod
-    def create_llm() -> LLMWrapper:
+    def create_llm(provider: LLMProvider = None) -> LLMWrapper:
         """Factory method that produces wrapped LLM instances"""
-        logger.info(f"🏭 Creating new LLM instance for provider: {Config.LLM_PROVIDER}")
-        if Config.LLM_PROVIDER == LLMProvider.CLAUDE:
+        # Use provided provider or fall back to config
+        provider = provider or Config.LLM_PROVIDER
+        
+        logger.info(f"🏭 Creating new LLM instance for provider: {provider}")
+        
+        if provider == LLMProvider.CLAUDE:
             model = ChatAnthropic(
                 model=Config.CLAUDE_MODEL,
                 anthropic_api_key=Config.ANTHROPIC_API_KEY,
                 temperature=Config.TEMPERATURE
             )
             return ClaudeWrapper(model)
-        elif Config.LLM_PROVIDER == LLMProvider.GEMINI:
+        elif provider == LLMProvider.GEMINI:
             import google.generativeai as genai
             genai.configure(api_key=Config.GOOGLE_API_KEY)
             model = genai.GenerativeModel(Config.GEMINI_MODEL)
             return GeminiWrapper(model)
         else:
-            raise ValueError(f"Unsupported LLM provider: {Config.LLM_PROVIDER}")
+            raise ValueError(f"Unsupported LLM provider: {provider}")

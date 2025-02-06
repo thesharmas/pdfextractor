@@ -45,13 +45,26 @@ app = Flask(__name__)
 def underwrite():
     debug_mode = request.json.get('debug', False)
     file_paths = request.json.get('file_paths', [])
-
+    # Get optional provider from request
+    provider = request.json.get('provider')
+    
     if not file_paths:
         return jsonify({"error": "No file paths provided"}), 400
 
     try:
-        # Create LLM and configure tools
-        llm = LLMFactory.create_llm()
+        # Create LLM with optional provider override
+        if provider:
+            try:
+                provider = LLMProvider(provider.upper())  # Convert string to enum
+                logger.info(f"🔄 Overriding default provider with: {provider}")
+                llm = LLMFactory.create_llm(provider=provider)
+            except ValueError:
+                return jsonify({
+                    "error": f"Invalid provider: {provider}. Valid options are: {[p.value for p in LLMProvider]}"
+                }), 400
+        else:
+            llm = LLMFactory.create_llm()  # Use default from config
+
         llm.set_tools([calculate_average_daily_balance, check_nsf])
 
         # Process PDFs once and store in the LLM
