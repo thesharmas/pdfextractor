@@ -1,13 +1,15 @@
 import logging
+import base64
 from typing import Any, Union, List, Dict
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, AIMessage
 from app.config import Config, LLMProvider
 import json
-import base64
 import time
 from anthropic import Anthropic, RateLimitError
 from google.generativeai import types
+import google.generativeai as genai
+from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +56,7 @@ class ClaudeWrapper(LLMWrapper):
     def __init__(self, model: ChatAnthropic):
         super().__init__()
         self.model = model
-        logger.info("�� Initialized Claude wrapper")
+        logger.info(" Initialized Claude wrapper")
 
     def get_response(self, prompt: str = None) -> str:
         if prompt:
@@ -119,7 +121,7 @@ class GeminiWrapper(LLMWrapper):
         super().__init__()
         self.model = model
         self.messages = []
-        logger.info("�� Initialized Gemini wrapper")
+        logger.info(" Initialized Gemini wrapper")
 
     def get_response(self, prompt: str = None) -> str:
         if prompt:
@@ -154,6 +156,63 @@ class GeminiWrapper(LLMWrapper):
             logger.debug(f"Response: {result.text[:100]}...")
             return result.text
 
+class OpenAIWrapper(LLMWrapper):
+    def __init__(self):
+        super().__init__()
+        self.client = OpenAI(api_key=Config.OPENAI_API_KEY)
+        self.model = Config.OPENAI_MODEL
+        logger.info(f"🤖 Initialized OpenAI wrapper with model: {self.model}")
+
+    def get_response(self, prompt: str = None) -> str:
+        if prompt:
+            logger.info("➕ Adding new prompt to conversation")
+            logger.debug(f"Prompt preview: {str(prompt)[:100]}...")
+            
+            messages = []
+            
+            # Add file contents first if they exist
+            if self.file_contents:
+                content_parts = []
+                for content in self.file_contents:
+                    try:
+                        with open(content['file_path'], 'rb') as file:
+                            pdf_data = base64.b64encode(file.read()).decode('utf-8')
+                            content_parts.append({
+                                "type": "image",  # OpenAI handles PDFs as images
+                                "image_url": {
+                                    "url": f"data:application/pdf;base64,{pdf_data}"
+                                }
+                            })
+                    except Exception as e:
+                        logger.error(f"Error processing PDF: {str(e)}")
+                
+                # Add content parts and prompt in one message
+                messages.append({
+                    "role": "user",
+                    "content": [
+                        *content_parts,
+                        {"type": "text", "text": prompt}
+                    ]
+                })
+            
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    max_tokens=1000
+                )
+                logger.info("✅ OpenAI response received")
+                return response.choices[0].message.content
+                
+            except Exception as e:
+                logger.error(f"❌ Error from OpenAI: {str(e)}")
+                raise
+
+    def _bind_tools(self, tools: List[Any]):
+        """Configure tools for OpenAI"""
+        logger.info("🔧 Binding tools for OpenAI")
+        self.tools = tools
+
 class LLMFactory:
     @staticmethod
     def create_llm(provider: LLMProvider = None) -> LLMWrapper:
@@ -171,9 +230,10 @@ class LLMFactory:
             )
             return ClaudeWrapper(model)
         elif provider == LLMProvider.GEMINI:
-            import google.generativeai as genai
             genai.configure(api_key=Config.GOOGLE_API_KEY)
             model = genai.GenerativeModel(Config.GEMINI_MODEL)
             return GeminiWrapper(model)
+        elif provider == LLMProvider.OPENAI:
+            return OpenAIWrapper()
         else:
             raise ValueError(f"Unsupported LLM provider: {provider}")

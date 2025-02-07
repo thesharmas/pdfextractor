@@ -15,10 +15,13 @@ class Config:
     # Model configurations
     CLAUDE_MODEL = "claude-3-5-sonnet-latest"
     GEMINI_MODEL = "gemini-2.0-flash-lite-preview-02-05"
+    OPENAI_MODEL = "gpt-4-vision-preview"
     
     # API Keys
     ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
     GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
+    OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+    
     
     # Model parameters
     TEMPERATURE = 0.7 

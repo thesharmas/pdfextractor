@@ -27,8 +27,7 @@ def test_underwrite(file_paths, provider=None):
     }
     
     if provider:
-        # Send the value exactly as defined in the enum
-        payload["provider"] = provider.value  # Don't modify the case
+        payload["provider"] = provider.value
         
     logger.info("🔄 Making request to /underwrite:")
     logger.info(f"URL: {url}")
@@ -43,92 +42,61 @@ def test_underwrite(file_paths, provider=None):
         logger.error(f"Response content: {response.text}")
     return response.json()
 
-def compare_responses(gemini_response, claude_response):
+def compare_responses(gemini_response, claude_response, openai_response):
     logger.info("\n=== Comparison of Responses ===\n")
     
     # First, print raw responses if there are errors
-    if 'error' in gemini_response or 'error' in claude_response:
+    if any('error' in resp for resp in [gemini_response, claude_response, openai_response]):
         logger.error("⚠️ Errors detected in responses:\n")
-        if 'error' in gemini_response:
-            logger.error(f"Gemini Error: {gemini_response.get('error')}")
-            logger.error(f"Traceback: {gemini_response.get('traceback', 'No traceback')}")
-        if 'error' in claude_response:
-            logger.error(f"Claude Error: {claude_response.get('error')}")
-            logger.error(f"Traceback: {claude_response.get('traceback', 'No traceback')}")
+        for name, resp in [("Gemini", gemini_response), ("Claude", claude_response), ("OpenAI", openai_response)]:
+            if 'error' in resp:
+                logger.error(f"{name} Error: {resp.get('error')}")
+                logger.error(f"Traceback: {resp.get('traceback', 'No traceback')}")
         return
 
     # Print full responses for debugging
-    logger.info("Full Gemini Response:")
-    logger.info(json.dumps(gemini_response, indent=2))
-    logger.info("\nFull Claude Response:")
-    logger.info(json.dumps(claude_response, indent=2))
+    for name, resp in [("Gemini", gemini_response), ("Claude", claude_response), ("OpenAI", openai_response)]:
+        logger.info(f"\nFull {name} Response:")
+        logger.info(json.dumps(resp, indent=2))
     
     try:
         # Compare metrics
         logger.info("\n📊 METRICS COMPARISON:")
         
         # Compare average daily balance
-        g_balance = gemini_response.get("metrics", {}).get("average_daily_balance", {}).get("amount", 0)
-        c_balance = claude_response.get("metrics", {}).get("average_daily_balance", {}).get("amount", 0)
+        balances = {
+            "Gemini": gemini_response.get("metrics", {}).get("average_daily_balance", {}).get("amount", 0),
+            "Claude": claude_response.get("metrics", {}).get("average_daily_balance", {}).get("amount", 0),
+            "OpenAI": openai_response.get("metrics", {}).get("average_daily_balance", {}).get("amount", 0)
+        }
+        
         logger.info(f"\nAverage Daily Balance:")
-        logger.info(f"Gemini: ${g_balance:,.2f}")
-        logger.info(f"Claude: ${c_balance:,.2f}")
-        logger.info(f"Difference: ${abs(g_balance - c_balance):,.2f}")
+        for name, balance in balances.items():
+            logger.info(f"{name}: ${balance:,.2f}")
         
         # Compare NSF information
-        g_nsf = gemini_response.get("metrics", {}).get("nsf_information", {})
-        c_nsf = claude_response.get("metrics", {}).get("nsf_information", {})
+        nsf_info = {
+            "Gemini": gemini_response.get("metrics", {}).get("nsf_information", {}),
+            "Claude": claude_response.get("metrics", {}).get("nsf_information", {}),
+            "OpenAI": openai_response.get("metrics", {}).get("nsf_information", {})
+        }
+        
         logger.info(f"\nNSF Information:")
-        logger.info(f"Gemini: {g_nsf.get('incident_count', 0)} incidents, ${g_nsf.get('total_fees', 0):,.2f} in fees")
-        logger.info(f"Claude: {c_nsf.get('incident_count', 0)} incidents, ${c_nsf.get('total_fees', 0):,.2f} in fees")
-        logger.info(f"Difference: {abs(g_nsf.get('incident_count', 0) - c_nsf.get('incident_count', 0))} incidents, "
-                   f"${abs(g_nsf.get('total_fees', 0) - c_nsf.get('total_fees', 0)):,.2f} in fees")
+        for name, nsf in nsf_info.items():
+            logger.info(f"{name}: {nsf.get('incident_count', 0)} incidents, ${nsf.get('total_fees', 0):,.2f} in fees")
         
         # Compare orchestration decisions
         logger.info("\n🤖 ORCHESTRATION DECISIONS:")
-        logger.info("\nGemini recommended:")
-        logger.info(gemini_response.get("orchestration", "No orchestration data"))
-        logger.info("\nClaude recommended:")
-        logger.info(claude_response.get("orchestration", "No orchestration data"))
+        for name, resp in [("Gemini", gemini_response), ("Claude", claude_response), ("OpenAI", openai_response)]:
+            logger.info(f"\n{name} recommended:")
+            logger.info(resp.get("orchestration", "No orchestration data"))
 
     except Exception as e:
         logger.error(f"\n⚠️ Error while comparing responses: {str(e)}")
         logger.error("\nRaw Responses:")
-        logger.error("\nGemini Response:")
-        logger.error(json.dumps(gemini_response, indent=2))
-        logger.error("\nClaude Response:")
-        logger.error(json.dumps(claude_response, indent=2))
-
-
-def print_response(response):
-    try:
-        # Compare metrics
-        logger.info("\n📊 Response:")
-        
-        # Compare average daily balance
-        g_balance = response.get("metrics", {}).get("average_daily_balance", {}).get("amount", 0)
-        logger.info(f"\nAverage Daily Balance:")
-        logger.info(f"Gemini: ${g_balance:,.2f}")
-
-        
-        # Compare NSF information
-        g_nsf = response.get("metrics", {}).get("nsf_information", {})
-        logger.info(f"\nNSF Information:")
-        logger.info(f"Gemini: {g_nsf.get('incident_count', 0)} incidents, ${g_nsf.get('total_fees', 0):,.2f} in fees")
-    
-        
-        # Compare orchestration decisions
-        logger.info("\n🤖 ORCHESTRATION DECISIONS:")
-        logger.info("\nGemini recommended:")
-        logger.info(response.get("orchestration", "No orchestration data"))
-
-
-    except Exception as e:
-        logger.error(f"\n⚠️ Error while comparing responses: {str(e)}")
-        logger.error("\nRaw Responses:")
-        logger.error("\nGemini Response:")
-        logger.error(json.dumps(response, indent=2))
-    
+        for name, resp in [("Gemini", gemini_response), ("Claude", claude_response), ("OpenAI", openai_response)]:
+            logger.error(f"\n{name} Response:")
+            logger.error(json.dumps(resp, indent=2))
 
 def main():
     # Use local PDF files
@@ -148,11 +116,14 @@ def main():
     logger.info("\n🚀 Testing with Gemini...")
     gemini_response = test_underwrite(file_paths, provider=LLMProvider.GEMINI)
     
-   # logger.info("\n🚀 Testing with Claude...")
-   # claude_response = test_underwrite(file_paths, provider=LLMProvider.CLAUDE)
+    logger.info("\n🚀 Testing with Claude...")
+    claude_response = test_underwrite(file_paths, provider=LLMProvider.CLAUDE)
     
-    # Compare the responses
-    #compare_responses(gemini_response, claude_response)
-    print_response(gemini_response)
+    logger.info("\n🚀 Testing with OpenAI...")
+    openai_response = test_underwrite(file_paths, provider=LLMProvider.OPENAI)
+    
+    # Compare all three responses
+    compare_responses(gemini_response, claude_response, openai_response)
+
 if __name__ == "__main__":
     main()
