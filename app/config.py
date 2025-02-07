@@ -7,6 +7,7 @@ load_dotenv()
 class LLMProvider(Enum):
     CLAUDE = "claude"
     GEMINI = "gemini"
+    OPENAI = "openai"
 
 class Config:
     LLM_PROVIDER = LLMProvider(os.getenv('LLM_PROVIDER', 'claude'))
