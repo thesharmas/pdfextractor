@@ -95,11 +95,10 @@ def underwrite():
         
         # Ask which tools to use
         orchestration_prompt = """I have bank statements provided above. 
-        Tell me which of these tools I should call to analyze them:
+        Recommend which tool to use to analyze them. I want to know the average daily balance and the nsf fees:
         - calculate_average_daily_balance()
         - check_nsf()
-        
-        Just list the tool names you recommend, one per line."""
+        """
         
         result_content = llm.get_response(prompt=orchestration_prompt)
         logger.info("Orchestration response: %s", result_content)

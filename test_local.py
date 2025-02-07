@@ -99,6 +99,37 @@ def compare_responses(gemini_response, claude_response):
         logger.error("\nClaude Response:")
         logger.error(json.dumps(claude_response, indent=2))
 
+
+def print_response(response):
+    try:
+        # Compare metrics
+        logger.info("\n📊 Response:")
+        
+        # Compare average daily balance
+        g_balance = response.get("metrics", {}).get("average_daily_balance", {}).get("amount", 0)
+        logger.info(f"\nAverage Daily Balance:")
+        logger.info(f"Gemini: ${g_balance:,.2f}")
+
+        
+        # Compare NSF information
+        g_nsf = response.get("metrics", {}).get("nsf_information", {})
+        logger.info(f"\nNSF Information:")
+        logger.info(f"Gemini: {g_nsf.get('incident_count', 0)} incidents, ${g_nsf.get('total_fees', 0):,.2f} in fees")
+    
+        
+        # Compare orchestration decisions
+        logger.info("\n🤖 ORCHESTRATION DECISIONS:")
+        logger.info("\nGemini recommended:")
+        logger.info(response.get("orchestration", "No orchestration data"))
+
+
+    except Exception as e:
+        logger.error(f"\n⚠️ Error while comparing responses: {str(e)}")
+        logger.error("\nRaw Responses:")
+        logger.error("\nGemini Response:")
+        logger.error(json.dumps(response, indent=2))
+    
+
 def main():
     # Use local PDF files
     file_paths = [
@@ -117,11 +148,11 @@ def main():
     logger.info("\n🚀 Testing with Gemini...")
     gemini_response = test_underwrite(file_paths, provider=LLMProvider.GEMINI)
     
-    logger.info("\n🚀 Testing with Claude...")
-    claude_response = test_underwrite(file_paths, provider=LLMProvider.CLAUDE)
+   # logger.info("\n🚀 Testing with Claude...")
+   # claude_response = test_underwrite(file_paths, provider=LLMProvider.CLAUDE)
     
     # Compare the responses
-    compare_responses(gemini_response, claude_response)
-
+    #compare_responses(gemini_response, claude_response)
+    print_response(gemini_response)
 if __name__ == "__main__":
     main()

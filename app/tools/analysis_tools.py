@@ -25,7 +25,8 @@ def calculate_average_daily_balance() -> Tuple[float, str]:
         Instructions:
         1. Extract all daily balances from the statements
         2. Calculate their average
-        3. Show your work clearly
+        3. Double check your work
+        4. Do the calculation step by step again and compare against your first answer 
         4. Your response MUST end with a line in exactly this format:
         FINAL_AMOUNT:1234.56
         """
@@ -65,10 +66,12 @@ def check_nsf() -> Tuple[float, int, str]:
         Analyze these bank statements for NSF (Non-Sufficient Funds) fees.
         
         Instructions:
-        1. Find all NSF fees in the statements
-        2. List each occurrence with date and amount
-        3. Calculate total count and sum
-        4. Your response MUST end with these two lines in exactly this format:
+        1. Find all NSF fees or returned checks or returned fees or return item fees in the statements
+        2. Double check your work
+        3. List each occurrence with date and amount
+        4. Calculate total count and sum
+        5. Do the calculation step by step again and compare against your first answer 
+        6. Your response MUST end with these two lines in exactly this format:
         NSF_COUNT:3
         NSF_FEES:105.00
         """
