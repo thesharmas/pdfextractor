@@ -10,6 +10,7 @@ from anthropic import Anthropic, RateLimitError
 from google.generativeai import types
 import google.generativeai as genai
 from openai import OpenAI
+import PyPDF2
 
 logger = logging.getLogger(__name__)
 
@@ -133,21 +134,20 @@ class GeminiWrapper(LLMWrapper):
             # Add file contents first if they exist
             if self.file_contents:
                 for content in self.file_contents:
-                    file_path = content['file_path']
-                    logger.info(f"📄 Processing file: {file_path}")
-                    
                     try:
-                        with open(file_path, 'rb') as file:
+                        with open(content['file_path'], 'rb') as file:
                             contents.append({
                                 "mime_type": "application/pdf",
                                 "data": file.read()
                             })
                     except Exception as e:
                         logger.error(f"Error processing PDF for Gemini: {str(e)}")
-                        logger.error(f"Attempted file path: {file_path}")
             
             # Add prompt
             contents.append(prompt)
+            
+            # Clear previous messages to prevent multiple tool calls
+            self.messages = []
             
             logger.info(f"📨 Sending to Gemini with {len(contents)-1} PDFs")
             result = self.model.generate_content(contents)
@@ -160,7 +160,7 @@ class OpenAIWrapper(LLMWrapper):
     def __init__(self):
         super().__init__()
         self.client = OpenAI(api_key=Config.OPENAI_API_KEY)
-        self.model = Config.OPENAI_MODEL
+        self.model = Config.OPENAI_MODEL  # "gpt-4-0125-preview"
         logger.info(f"🤖 Initialized OpenAI wrapper with model: {self.model}")
 
     def get_response(self, prompt: str = None) -> str:
@@ -170,35 +170,36 @@ class OpenAIWrapper(LLMWrapper):
             
             messages = []
             
-            # Add file contents first if they exist
+            # Add file contents as text
             if self.file_contents:
-                content_parts = []
+                content_text = ""
                 for content in self.file_contents:
                     try:
                         with open(content['file_path'], 'rb') as file:
-                            pdf_data = base64.b64encode(file.read()).decode('utf-8')
-                            content_parts.append({
-                                "type": "image",  # OpenAI handles PDFs as images
-                                "image_url": {
-                                    "url": f"data:application/pdf;base64,{pdf_data}"
-                                }
-                            })
+                            pdf_reader = PyPDF2.PdfReader(file)
+                            for page in pdf_reader.pages:
+                                content_text += page.extract_text() + "\n\n"
                     except Exception as e:
                         logger.error(f"Error processing PDF: {str(e)}")
                 
-                # Add content parts and prompt in one message
-                messages.append({
-                    "role": "user",
-                    "content": [
-                        *content_parts,
-                        {"type": "text", "text": prompt}
-                    ]
-                })
+                if content_text:
+                    messages.append({
+                        "role": "user",
+                        "content": f"Here are the bank statements:\n\n{content_text}"
+                    })
+            
+            # Add the prompt
+            messages.append({
+                "role": "user",
+                "content": prompt
+            })
             
             try:
+                logger.info(f"📨 Sending to OpenAI with {len(messages)} messages")
                 response = self.client.chat.completions.create(
                     model=self.model,
                     messages=messages,
+                    temperature=0.7,
                     max_tokens=1000
                 )
                 logger.info("✅ OpenAI response received")

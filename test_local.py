@@ -5,6 +5,7 @@ import os
 import logging
 from dotenv import load_dotenv
 from app.config import LLMProvider
+import argparse
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, 
@@ -99,6 +100,11 @@ def compare_responses(gemini_response, claude_response, openai_response):
             logger.error(json.dumps(resp, indent=2))
 
 def main():
+    parser = argparse.ArgumentParser(description='Test LLM providers')
+    parser.add_argument('--provider', type=str, choices=['claude', 'gemini', 'openai', 'all'],
+                       default='all', help='Specify which LLM provider to test')
+    args = parser.parse_args()
+
     # Use local PDF files
     file_paths = [
         "./Bank5.pdf",
@@ -113,17 +119,28 @@ def main():
         if not os.path.exists(path):
             logger.warning(f"⚠️ Warning: File not found: {path}")
     
-    logger.info("\n🚀 Testing with Gemini...")
-    gemini_response = test_underwrite(file_paths, provider=LLMProvider.GEMINI)
-    
-    logger.info("\n🚀 Testing with Claude...")
-    claude_response = test_underwrite(file_paths, provider=LLMProvider.CLAUDE)
-    
-    logger.info("\n🚀 Testing with OpenAI...")
-    openai_response = test_underwrite(file_paths, provider=LLMProvider.OPENAI)
-    
-    # Compare all three responses
-    compare_responses(gemini_response, claude_response, openai_response)
+    if args.provider == 'all':
+        # Run all providers and compare
+        logger.info("\n🚀 Testing with Gemini...")
+        gemini_response = test_underwrite(file_paths, provider=LLMProvider.GEMINI)
+        
+        logger.info("\n🚀 Testing with Claude...")
+        claude_response = test_underwrite(file_paths, provider=LLMProvider.CLAUDE)
+        
+        logger.info("\n🚀 Testing with OpenAI...")
+        openai_response = test_underwrite(file_paths, provider=LLMProvider.OPENAI)
+        
+        # Compare all responses
+        compare_responses(gemini_response, claude_response, openai_response)
+    else:
+        # Run single provider
+        provider = LLMProvider(args.provider)
+        logger.info(f"\n🚀 Testing with {provider.name}...")
+        response = test_underwrite(file_paths, provider=provider)
+        
+        # Print single response
+        logger.info("\n📊 RESPONSE:")
+        logger.info(json.dumps(response, indent=2))
 
 if __name__ == "__main__":
     main()

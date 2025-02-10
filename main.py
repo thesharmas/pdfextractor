@@ -104,7 +104,7 @@ def underwrite():
         logger.info("Orchestration response: %s", result_content)
         
         # Parse recommended analyses
-        recommended_analyses = result_content.split('\n')
+        recommended_analyses = set(result_content.lower().split('\n'))  # Use set to prevent duplicates
         
         balance = None
         balance_details = None
@@ -112,15 +112,23 @@ def underwrite():
         nsf_count = None
         nsf_details = None
         
+        # Track which analyses have been run
+        completed_analyses = set()
+        
         for analysis in recommended_analyses:
-            analysis = analysis.strip().lower()
-            if 'average' in analysis or 'balance' in analysis:
+            analysis = analysis.strip()
+            if 'balance' in analysis and 'balance' not in completed_analyses:
                 logger.info("Calling calculate_average_daily_balance")
-                balance, balance_details = calculate_average_daily_balance("None")
-            elif 'nsf' in analysis or 'non-sufficient' in analysis:
+                result = calculate_average_daily_balance.invoke("None")
+                balance, balance_details = result
+                completed_analyses.add('balance')
+                
+            elif 'nsf' in analysis and 'nsf' not in completed_analyses:
                 logger.info("Calling check_nsf")
-                nsf_fees, nsf_count, nsf_details = check_nsf("None")
-
+                result = check_nsf.invoke("None")
+                nsf_fees, nsf_count, nsf_details = result
+                completed_analyses.add('nsf')
+        
         response_data = {
             "metrics": {
                 "average_daily_balance": {
