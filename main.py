@@ -94,10 +94,11 @@ def underwrite():
         set_llm(llm)
         
         # Ask which tools to use
-        orchestration_prompt = """I have bank statements provided above. 
-        Recommend which tool to use to analyze them. I want to know the average daily balance and the nsf fees:
+        orchestration_prompt = """I have bank statements provided above that i need analyzed based on the tools provided to you as below
         - calculate_average_daily_balance()
         - check_nsf()
+        
+        recommend how to call them via tool call
         """
         
         result_content = llm.get_response(prompt=orchestration_prompt)
@@ -120,13 +121,16 @@ def underwrite():
             if 'balance' in analysis and 'balance' not in completed_analyses:
                 logger.info("Calling calculate_average_daily_balance")
                 result = calculate_average_daily_balance.invoke("None")
-                balance, balance_details = result
+                balance = result.average_daily_balance
+                balance_details = result.details
                 completed_analyses.add('balance')
                 
             elif 'nsf' in analysis and 'nsf' not in completed_analyses:
                 logger.info("Calling check_nsf")
                 result = check_nsf.invoke("None")
-                nsf_fees, nsf_count, nsf_details = result
+                nsf_fees = result.total_fees
+                nsf_count = result.incident_count
+                nsf_details = [fee.dict() for fee in result.fees]
                 completed_analyses.add('nsf')
         
         response_data = {
@@ -158,5 +162,5 @@ def underwrite():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
-    debug = bool(os.environ.get('LOCAL_DEV', False))
-    app.run(host='0.0.0.0', port=port, debug=debug)
+    # Enable debug mode for hot reloading
+    app.run(host='0.0.0.0', port=port, debug=True)

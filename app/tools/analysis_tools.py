@@ -3,6 +3,8 @@ from typing import List, Dict, Tuple
 from langchain_core.messages import HumanMessage
 from langchain_core.tools import tool
 from app.services.llm_factory import LLMFactory
+import json
+from langchain_core.pydantic_v1 import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -14,101 +16,72 @@ def set_llm(llm):
     global _llm
     _llm = llm
 
+# Pydantic models for structured output
+class NSFFee(BaseModel):
+    """Structure for a single NSF fee"""
+    date: str = Field(description="Date the NSF fee was charged")
+    amount: float = Field(description="Amount of the NSF fee")
+    description: str = Field(description="Description of the fee")
+
+class NSFAnalysis(BaseModel):
+    """Structure for NSF fee analysis"""
+    total_fees: float = Field(description="Total amount of NSF fees")
+    incident_count: int = Field(description="Number of NSF incidents")
+    fees: List[NSFFee] = Field(description="List of individual NSF fees")
+
+class BalanceAnalysis(BaseModel):
+    """Structure for balance analysis"""
+    average_daily_balance: float = Field(description="Average daily balance")
+    details: str = Field(description="Explanation of the calculation")
+
 @tool
-def calculate_average_daily_balance() -> Tuple[float, str]:
-    """Calculate the average daily balance from bank statements."""
+def calculate_average_daily_balance() -> BalanceAnalysis:
+    """Calculate the average daily balance from bank statements"""
     logger.info("🔧 Tool calculate_average_daily_balance called")
     try:
         prompt = """
-        Analyze these bank statements and calculate the average daily balance.
-        
-        Instructions:
-        1. Extract all daily balances from the statements
-        2. Calculate their average
-        3. Double check your work
-        4. Do the calculation step by step again and compare against your first answer 
-        4. Your response MUST end with a line in exactly this format:
-        FINAL_AMOUNT:1234.56
+        Analyze the bank statements and calculate the average daily balance.
+        Return the result in this exact JSON structure:
+        {
+            "average_daily_balance": <calculated average balance>,
+            "details": "<explanation of how the calculation was performed>"
+        }
         """
         
-        response_text = _llm.get_response(prompt=prompt)
-
-        logger.debug("Raw response: %s", response_text)        
+        response = _llm.get_response(prompt=prompt)
+        return BalanceAnalysis.model_validate_json(response)
         
-        lines = response_text.split('\n')
-        for line in lines:
-            line = line.strip()
-            logger.debug("Processing line: %s", line)
-            
-            if line.startswith('FINAL_AMOUNT:'):
-                try:
-                    amount_str = line.replace('FINAL_AMOUNT:', '').strip()
-                    amount = float(amount_str)
-                    logger.info(f"Found amount: {amount}")
-                    return amount, response_text
-                except ValueError as e:
-                    logger.error(f"Failed to parse amount from line: {line}")
-                    raise ValueError(f"Invalid amount format in: {line}")
-                
-        logger.error("No FINAL_AMOUNT found in response")
-        raise ValueError("No FINAL_AMOUNT found in response")
     except Exception as e:
         logger.error("Tool error: %s", str(e))
         logger.error("Full traceback:", exc_info=True)
-        return 0.0, str(e)
+        return BalanceAnalysis(average_daily_balance=0.0, details=str(e))
 
 @tool
-def check_nsf() -> Tuple[float, int, str]:
+def check_nsf() -> NSFAnalysis:
     """Check for NSF fees in bank statements."""
     logger.info("🔧 Tool check_nsf called")
     try:
         prompt = """
         Analyze these bank statements for NSF (Non-Sufficient Funds) fees.
-        
-        Instructions:
-        1. Find all NSF fees or returned checks or returned fees or return item fees in the statements
-        2. Double check your work
-        3. List each occurrence with date and amount
-        4. Calculate total count and sum
-        5. Do the calculation step by step again and compare against your first answer 
-        6. Your response MUST end with these two lines in exactly this format:
-        NSF_COUNT:3
-        NSF_FEES:105.00
+        Return the information in this exact JSON structure:
+        {
+            "total_fees": <total amount of all NSF fees>,
+            "incident_count": <number of NSF incidents>,
+            "fees": [
+                {
+                    "date": "YYYY-MM-DD",
+                    "amount": <fee amount>,
+                    "description": "<description of the fee>"
+                }
+                // ... additional fees if any
+            ]
+        }
         """
         
-        response_text = _llm.get_response(prompt=prompt)
-
-        logger.debug("Raw response: %s", response_text)        
+        response = _llm.get_response(prompt=prompt)
+        return NSFAnalysis.model_validate_json(response)
         
-        lines = response_text.split('\n')
-        nsf_count = None
-        nsf_fees = None
-        
-        for line in lines:
-            line = line.strip()
-            logger.debug("Processing line: %s", line)
-            
-            if line.startswith('NSF_COUNT:'):
-                try:
-                    count_str = line.replace('NSF_COUNT:', '').strip()
-                    nsf_count = int(count_str)
-                    logger.info(f"Found count: {nsf_count}")
-                except ValueError:
-                    logger.error(f"Failed to parse count from line: {line}")
-            elif line.startswith('NSF_FEES:'):
-                try:
-                    fees_str = line.replace('NSF_FEES:', '').strip()
-                    nsf_fees = float(fees_str)
-                    logger.info(f"Found fees: {nsf_fees}")
-                except ValueError:
-                    logger.error(f"Failed to parse fees from line: {line}")
-                
-        if nsf_count is None or nsf_fees is None:
-            logger.error("Missing NSF info in response")
-            raise ValueError("Missing NSF count or fees in response")
-            
-        return nsf_fees, nsf_count, response_text
     except Exception as e:
         logger.error("Tool error: %s", str(e))
         logger.error("Full traceback:", exc_info=True)
-        return 0.0, 0, str(e) 
+        return NSFAnalysis(total_fees=0.0, incident_count=0, fees=[]) 
