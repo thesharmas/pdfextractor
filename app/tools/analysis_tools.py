@@ -39,17 +39,36 @@ def calculate_average_daily_balance() -> BalanceAnalysis:
     """Calculate the average daily balance from bank statements"""
     logger.info("🔧 Tool calculate_average_daily_balance called")
     try:
-        prompt = """
-        Analyze the bank statements and calculate the average daily balance.
-        Return the result in this exact JSON structure:
+        prompt = """You are a JSON-only response bot. Analyze the bank statements and calculate the average daily balance.
+        
+        You must ONLY return a valid JSON object in this exact format, with no additional text or explanation:
         {
-            "average_daily_balance": <calculated average balance>,
-            "details": "<explanation of how the calculation was performed>"
+            "average_daily_balance": <number>,
+            "details": "<explanation string>"
         }
         """
         
         response = _llm.get_response(prompt=prompt)
-        return BalanceAnalysis.model_validate_json(response)
+        logger.debug(f"Raw LLM Response: {response}")
+        
+        # Clean the response - remove any markdown formatting
+        cleaned_response = response.strip()
+        if cleaned_response.startswith('```json'):
+            cleaned_response = cleaned_response.replace('```json', '', 1)
+        if cleaned_response.endswith('```'):
+            cleaned_response = cleaned_response[:-3]
+        cleaned_response = cleaned_response.strip()
+        
+        logger.debug(f"Cleaned Response: {cleaned_response}")
+        
+        try:
+            json_data = json.loads(cleaned_response)
+            logger.debug(f"Parsed JSON: {json_data}")
+            return BalanceAnalysis(**json_data)
+        except json.JSONDecodeError as je:
+            logger.error(f"JSON parsing failed: {je}")
+            logger.error(f"Failed response: {cleaned_response}")
+            raise
         
     except Exception as e:
         logger.error("Tool error: %s", str(e))
@@ -61,25 +80,43 @@ def check_nsf() -> NSFAnalysis:
     """Check for NSF fees in bank statements."""
     logger.info("🔧 Tool check_nsf called")
     try:
-        prompt = """
-        Analyze these bank statements for NSF (Non-Sufficient Funds) fees.
-        Return the information in this exact JSON structure:
+        prompt = """You are a JSON-only response bot. Analyze these bank statements for NSF (Non-Sufficient Funds) fees.
+        
+        You must ONLY return a valid JSON object in this exact format, with no additional text or explanation:
         {
-            "total_fees": <total amount of all NSF fees>,
-            "incident_count": <number of NSF incidents>,
+            "total_fees": <number>,
+            "incident_count": <number>,
             "fees": [
                 {
                     "date": "YYYY-MM-DD",
-                    "amount": <fee amount>,
-                    "description": "<description of the fee>"
+                    "amount": <number>,
+                    "description": "<string>"
                 }
-                // ... additional fees if any
             ]
         }
         """
         
         response = _llm.get_response(prompt=prompt)
-        return NSFAnalysis.model_validate_json(response)
+        logger.debug(f"Raw LLM Response: {response}")
+        
+        # Clean the response - remove any markdown formatting
+        cleaned_response = response.strip()
+        if cleaned_response.startswith('```json'):
+            cleaned_response = cleaned_response.replace('```json', '', 1)
+        if cleaned_response.endswith('```'):
+            cleaned_response = cleaned_response[:-3]
+        cleaned_response = cleaned_response.strip()
+        
+        logger.debug(f"Cleaned Response: {cleaned_response}")
+        
+        try:
+            json_data = json.loads(cleaned_response)
+            logger.debug(f"Parsed JSON: {json_data}")
+            return NSFAnalysis(**json_data)
+        except json.JSONDecodeError as je:
+            logger.error(f"JSON parsing failed: {je}")
+            logger.error(f"Failed response: {cleaned_response}")
+            raise
         
     except Exception as e:
         logger.error("Tool error: %s", str(e))
