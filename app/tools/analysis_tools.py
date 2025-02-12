@@ -5,6 +5,7 @@ from langchain_core.tools import tool
 from app.services.llm_factory import LLMFactory
 import json
 from langchain_core.pydantic_v1 import BaseModel, Field
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,7 @@ class BalanceAnalysis(BaseModel):
 def calculate_average_daily_balance() -> BalanceAnalysis:
     """Calculate the average daily balance from bank statements"""
     logger.info("🔧 Tool calculate_average_daily_balance called")
+    time.sleep(2)  # Add delay between requests
     try:
         prompt = """You are a JSON-only response bot. Analyze the bank statements and calculate the average daily balance.
         
@@ -79,6 +81,7 @@ def calculate_average_daily_balance() -> BalanceAnalysis:
 def check_nsf() -> NSFAnalysis:
     """Check for NSF fees in bank statements."""
     logger.info("🔧 Tool check_nsf called")
+    time.sleep(2)  # Add delay between requests
     try:
         prompt = """You are a JSON-only response bot. Analyze these bank statements for NSF (Non-Sufficient Funds) fees.
         
