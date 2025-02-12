@@ -11,6 +11,7 @@ from google.generativeai import types
 import google.generativeai as genai
 from openai import OpenAI
 import PyPDF2
+import pathlib
 
 logger = logging.getLogger(__name__)
 
@@ -51,39 +52,34 @@ class LLMWrapper:
         raise NotImplementedError
 
 class ClaudeWrapper(LLMWrapper):
-    MAX_RETRIES = 3
-    RETRY_DELAY = 5  # seconds
-    
     def __init__(self, model: ChatAnthropic):
         super().__init__()
         self.model = model
-        logger.info(" Initialized Claude wrapper")
+        self.first_call = True
+        self.messages = []
+        logger.info("🤖 Initialized Claude wrapper")
 
     def get_response(self, prompt: str = None) -> str:
         if prompt:
-            logger.info("➕ Adding new prompt to conversation")
-            logger.debug(f"Prompt preview: {str(prompt)[:100]}...")
-            
             message_content = []
             
-            # Add file contents first if they exist
-            if self.file_contents:
+            if self.first_call and self.file_contents:
+                logger.info("📄 First call - processing PDFs")
                 for content in self.file_contents:
                     try:
                         with open(content['file_path'], 'rb') as file:
                             pdf_data = base64.b64encode(file.read()).decode('utf-8')
-                            
-                        message_content.append({
-                            "type": "document",
-                            "source": {
-                                "type": "base64",
-                                "media_type": "application/pdf",
-                                "data": pdf_data
-                            },
-                            "cache_control": {"type": "ephemeral"}
-                        })
+                            message_content.append({
+                                "type": "document",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": "application/pdf",
+                                    "data": pdf_data
+                                }
+                            })
                     except Exception as e:
                         logger.error(f"Error processing PDF: {str(e)}")
+                self.first_call = False
             
             # Add prompt
             message_content.append({
@@ -91,76 +87,121 @@ class ClaudeWrapper(LLMWrapper):
                 "text": prompt
             })
             
-            self.messages = [{
+            # Append to message history
+            self.messages.append({
                 "role": "user",
                 "content": message_content
-            }]
+            })
             
-        logger.info(f"📨 Sending conversation to Claude")
         try:
-            result = self.model.invoke(self.messages)
-            logger.info("✅ Claude response received successfully")
+            # Set max_tokens to a higher value
+            result = self.model.invoke(
+                self.messages,
+                max_tokens=4096,  # Increase token limit
+                temperature=0.7
+            )
             
-            # Handle different response types
-            if isinstance(result, AIMessage):
-                return result.content
-            elif hasattr(result, 'text'):
-                return result.text
-            else:
-                return str(result)
+            # Store assistant's response
+            self.messages.append({
+                "role": "assistant",
+                "content": result.content
+            })
+            
+            # Validate response completeness for JSON
+            response_text = result.content
+            if response_text.count('{') != response_text.count('}'):
+                logger.warning("⚠️ Incomplete JSON detected, requesting completion")
+                completion_prompt = "Please complete the JSON response. Return ONLY the complete JSON."
+                completion = self.model.invoke(
+                    self.messages + [{
+                        "role": "user", 
+                        "content": [{"type": "text", "text": completion_prompt}]
+                    }],
+                    max_tokens=4096,
+                    temperature=0.7
+                )
+                response_text = completion.content
+            
+            return response_text
                 
-        except RateLimitError as e:
-            logger.error(f"🚫 Rate limit hit: {str(e)}")
-            logger.error(f"Rate limit details: {e.response.headers if hasattr(e, 'response') else 'No details'}")
-            raise
         except Exception as e:
             logger.error(f"❌ Error from Claude: {str(e)}")
             raise
 
 class GeminiWrapper(LLMWrapper):
-    def __init__(self, model: Any):
+    def __init__(self):
         super().__init__()
-        self.model = model
-        self.messages = []
-        logger.info(" Initialized Gemini wrapper")
+        genai.configure(api_key=Config.GOOGLE_API_KEY)
+        self.model = genai.GenerativeModel(Config.GEMINI_MODEL)
+        self.first_call = True
+        self.chat = None
+        logger.info(f"🤖 Initialized Gemini wrapper with model: {Config.GEMINI_MODEL}")
 
     def get_response(self, prompt: str = None) -> str:
         if prompt:
-            logger.info("➕ Adding new prompt to conversation")
-            logger.debug(f"Prompt: {prompt[:100]}...")
-            
-            contents = []
-            
-            # Add file contents first if they exist
-            if self.file_contents:
-                for content in self.file_contents:
-                    try:
+            # Initialize chat on first call with PDFs
+            if self.first_call and self.file_contents:
+                logger.info("📄 First call - processing PDFs")
+                try:
+                    # Start a chat session
+                    self.chat = self.model.start_chat()
+                    
+                    # Send PDFs with initial prompt
+                    contents = []
+                    for content in self.file_contents:
                         with open(content['file_path'], 'rb') as file:
                             contents.append({
                                 "mime_type": "application/pdf",
                                 "data": file.read()
                             })
-                    except Exception as e:
-                        logger.error(f"Error processing PDF for Gemini: {str(e)}")
+                    
+                    # Add text prompt with PDFs
+                    contents.append({
+                        "text": "Here are the bank statements. Please analyze them."
+                    })
+                    
+                    # Send PDFs to initialize context
+                    self.chat.send_message(contents)
+                    self.first_call = False
+                    logger.info(f"📨 First call - sent {len(contents)-1} PDFs")
+                except Exception as e:
+                    logger.error(f"Error processing PDFs: {str(e)}")
+                    raise
             
-            # Add prompt
-            contents.append(prompt)
-            
-            # Clear previous messages to prevent multiple tool calls
-            self.messages = []
-            
-            logger.info(f"📨 Sending to Gemini with {len(contents)-1} PDFs")
-            result = self.model.generate_content(contents)
-            
-            logger.info("📥 Received response from Gemini")
-            logger.debug(f"Response: {result.text[:100]}...")
-            return result.text
+            try:
+                # Use existing chat or create new one
+                if not self.chat:
+                    self.chat = self.model.start_chat()
+                
+                # Send prompt
+                response = self.chat.send_message(prompt)
+                logger.info("✅ Received response from Gemini")
+                
+                # Check for incomplete JSON
+                response_text = response.text
+                if response_text.count('{') != response_text.count('}'):
+                    logger.warning("⚠️ Incomplete JSON detected, requesting completion")
+                    completion = self.chat.send_message(
+                        "Please complete the JSON response. Return ONLY the complete JSON."
+                    )
+                    response_text = completion.text
+                
+                return response_text
+                
+            except Exception as e:
+                if "429" in str(e):
+                    logger.warning(f"🚫 Gemini rate limit hit, retrying...")
+                    raise
+                logger.error(f"❌ Error from Gemini: {str(e)}")
+                raise
 
 class OpenAIWrapper(LLMWrapper):
     def __init__(self):
         super().__init__()
         self.client = OpenAI(api_key=Config.OPENAI_API_KEY)
         self.model = Config.OPENAI_MODEL  # "gpt-4-0125-preview"
+        self.first_call = True
+        self.pdf_content = None
         logger.info(f"🤖 Initialized OpenAI wrapper with model: {self.model}")
 
     def get_response(self, prompt: str = None) -> str:
@@ -170,8 +211,9 @@ class OpenAIWrapper(LLMWrapper):
             
             messages = []
             
-            # Add file contents as text
-            if self.file_contents:
+            # Process PDFs only on first call
+            if self.first_call and self.file_contents:
+                logger.info("📄 First call - processing PDFs")
                 content_text = ""
                 for content in self.file_contents:
                     try:
@@ -183,10 +225,19 @@ class OpenAIWrapper(LLMWrapper):
                         logger.error(f"Error processing PDF: {str(e)}")
                 
                 if content_text:
+                    self.pdf_content = content_text
                     messages.append({
                         "role": "user",
                         "content": f"Here are the bank statements:\n\n{content_text}"
                     })
+                    
+                self.first_call = False
+                logger.info("📨 First call - sent PDFs to OpenAI")
+            elif self.pdf_content:
+                messages.append({
+                    "role": "user",
+                    "content": f"Here are the bank statements:\n\n{self.pdf_content}"
+                })
             
             # Add the prompt
             messages.append({
@@ -200,10 +251,37 @@ class OpenAIWrapper(LLMWrapper):
                     model=self.model,
                     messages=messages,
                     temperature=0.7,
-                    max_tokens=1000
+                    max_tokens=4000,  # Increased token limit
+                    presence_penalty=0,
+                    frequency_penalty=0
                 )
+                
+                response_text = response.choices[0].message.content
+                
+                # Check for incomplete JSON
+                if response_text.count('{') != response_text.count('}'):
+                    logger.warning("⚠️ Incomplete JSON detected, requesting completion")
+                    messages.append({
+                        "role": "assistant",
+                        "content": response_text
+                    })
+                    messages.append({
+                        "role": "user",
+                        "content": "Please complete the JSON response. Return ONLY the complete JSON."
+                    })
+                    
+                    completion = self.client.chat.completions.create(
+                        model=self.model,
+                        messages=messages,
+                        temperature=0.7,
+                        max_tokens=4000,
+                        presence_penalty=0,
+                        frequency_penalty=0
+                    )
+                    response_text = completion.choices[0].message.content
+                
                 logger.info("✅ OpenAI response received")
-                return response.choices[0].message.content
+                return response_text
                 
             except Exception as e:
                 logger.error(f"❌ Error from OpenAI: {str(e)}")
@@ -231,9 +309,7 @@ class LLMFactory:
             )
             return ClaudeWrapper(model)
         elif provider == LLMProvider.GEMINI:
-            genai.configure(api_key=Config.GOOGLE_API_KEY)
-            model = genai.GenerativeModel(Config.GEMINI_MODEL)
-            return GeminiWrapper(model)
+            return GeminiWrapper()
         elif provider == LLMProvider.OPENAI:
             return OpenAIWrapper()
         else:

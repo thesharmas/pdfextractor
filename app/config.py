@@ -14,7 +14,7 @@ class Config:
     
     # Model configurations
     CLAUDE_MODEL = "claude-3-5-sonnet-latest"
-    GEMINI_MODEL = "gemini-2.0-flash-lite-preview-02-05"
+    GEMINI_MODEL = "gemini-1.5-flash"
     OPENAI_MODEL = "chatgpt-4o-latest"
     
     # API Keys

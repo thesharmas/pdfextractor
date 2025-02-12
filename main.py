@@ -109,7 +109,7 @@ def underwrite():
         logger.info("Orchestration response: %s", result_content)
         
         # Parse recommended analyses
-        recommended_analyses = set(result_content.lower().split('\n'))  # Use set to prevent duplicates
+        recommended_analyses = set(result_content.lower().split('\n'))
         
         balance = None
         balance_details = None
@@ -124,20 +124,16 @@ def underwrite():
             analysis = analysis.strip()
             if 'balance' in analysis and 'balance' not in completed_analyses:
                 logger.info("Calling calculate_average_daily_balance")
-                result = calculate_average_daily_balance.invoke("None")
-                balance = result.average_daily_balance
-                balance_details = result.details
+                balance, balance_details = calculate_average_daily_balance("None")
                 completed_analyses.add('balance')
                 
             elif 'nsf' in analysis and 'nsf' not in completed_analyses:
                 logger.info("Calling check_nsf")
-                result = check_nsf.invoke("None")
-                nsf_fees = result.total_fees
-                nsf_count = result.incident_count
-                nsf_details = [fee.dict() for fee in result.fees]
+                nsf_fees, nsf_count, nsf_details = check_nsf("None")
                 completed_analyses.add('nsf')
         
-        response_data = {
+        # Prepare response
+        response = {
             "metrics": {
                 "average_daily_balance": {
                     "amount": balance,
@@ -155,7 +151,7 @@ def underwrite():
             }
         }
 
-        return jsonify(response_data)
+        return jsonify(response)
 
     except Exception as e:
         logger.error("Error in underwrite", exc_info=True)
