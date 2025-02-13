@@ -3,6 +3,7 @@ import logging
 from typing import Dict, Any
 from dataclasses import dataclass
 from datetime import datetime
+from ratelimit import limits, sleep_and_retry
 
 logger = logging.getLogger(__name__)
 
@@ -62,21 +63,13 @@ class RateLimiter:
         self.token_count += estimated_tokens
         self.last_request_time = time.time()
 
-# Pre-configured rate limiters for different LLMs
+# Claude allows 80k tokens/minute, so we should set a reasonable per-call limit
+FIFTEEN_SECONDS = 15  # Increase from 1 second to 15 seconds
+FIVE_CALLS = 5       # Limit to 5 calls per 15 seconds
+
+# Define rate limiters for each provider
 RATE_LIMITERS = {
-    "claude": RateLimiter(RateLimitConfig(
-        requests_per_minute=50,
-        tokens_per_minute=80000,
-        min_request_interval=0.1
-    )),
-    "gemini": RateLimiter(RateLimitConfig(
-        requests_per_minute=60,
-        tokens_per_minute=60000,
-        min_request_interval=0.1
-    )),
-    "openai": RateLimiter(RateLimitConfig(
-        requests_per_minute=200,  # GPT-4 limit
-        tokens_per_minute=100000,
-        min_request_interval=0.05
-    ))
+    "claude": sleep_and_retry(limits(calls=FIVE_CALLS, period=FIFTEEN_SECONDS)),
+    "gemini": sleep_and_retry(limits(calls=60, period=60)),  # 60 calls per minute
+    "openai": sleep_and_retry(limits(calls=50, period=60))   # 50 calls per minute
 } 

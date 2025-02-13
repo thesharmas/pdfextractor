@@ -27,6 +27,7 @@ class Config:
     TEMPERATURE = 0.7 
     
     # Model max token limits (for responses)
+    CLAUDE_MAX_TOKENS = 4096     # Claude 3 Sonnet response limit
     GEMINI_MAX_TOKENS = 2048     # Gemini Pro response limit
     OPENAI_MAX_TOKENS = 4096     # GPT-4 response limit
 
