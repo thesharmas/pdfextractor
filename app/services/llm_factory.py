@@ -1,6 +1,7 @@
 import logging
 import base64
 from typing import Any, Union, List, Dict
+import inspect
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, AIMessage
 from app.config import Config, LLMProvider
@@ -13,7 +14,7 @@ from openai import OpenAI
 import PyPDF2
 import pathlib
 from app.services.rate_limiter import RATE_LIMITERS
-from app.services.token_tracker import token_tracker
+from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
@@ -21,14 +22,15 @@ class LLMWrapper:
     """Base wrapper class for LLMs with conversation memory"""
     def __init__(self):
         self.file_contents = None
-        self.messages = []
-        self.tools = []
+        self.first_call = True
+        self.function_calls = []
+        self.input_tokens = 0
+        self.output_tokens = 0
 
     def set_file_contents(self, contents: List[Dict[str, Any]]) -> None:
         """Set the file contents and verify they were received."""
         self.file_contents = contents
         
-        # Verify content was received
         verification_prompt = """I've just shared some bank statements with you. 
         To verify you received them correctly:
         1. How many pdfs did you receive?
@@ -49,25 +51,78 @@ class LLMWrapper:
         """Base implementation for binding tools"""
         logger.info(f"🔧 Binding tools: {[t.name for t in tools]}")
         self.tools = tools
+    
+    def _track_usage(self, input_tokens: int, output_tokens: int, model: str):
+        """Track token usage for an API call"""
+        # Get the calling function name by going up the stack
+        frame = inspect.currentframe()
+        try:
+            caller = 'unknown_function'
+            if frame and frame.f_back and frame.f_back.f_back:
+                caller = frame.f_back.f_back.f_code.co_name
+        finally:
+            del frame
+        
+        # Update running totals
+        self.input_tokens += input_tokens
+        self.output_tokens += output_tokens
+        
+        # Store this call's details
+        self.function_calls.append({
+            'function': caller,
+            'input_tokens': input_tokens,
+            'output_tokens': output_tokens,
+            'total_tokens': input_tokens + output_tokens,
+            'model': model
+        })
+        
+        logger.info(f"🔄 API Call to {model}")
+        logger.info(f"  Function: {caller}")
+        logger.info(f"  Input tokens: {input_tokens:,}")
+        logger.info(f"  Output tokens: {output_tokens:,}")
+        logger.info(f"  Total this call: {input_tokens + output_tokens:,}")
+        logger.info(f"  Running total: {self.input_tokens + self.output_tokens:,}")
 
     def get_response(self, prompt: str = None) -> str:
         raise NotImplementedError
 
+    def print_function_summary(self):
+        """Print detailed summary of all function calls"""
+        logger.info("\n📊 Function Call Details:")
+        
+        # Print each call
+        for i, call in enumerate(self.function_calls, 1):
+            logger.info(f"\nCall #{i}:")
+            logger.info(f"  Function: {call['function']}")
+            logger.info(f"  Model: {call['model']}")
+            logger.info(f"  New Input tokens: {call['input_tokens']:,}")
+            logger.info(f"  Output tokens: {call['output_tokens']:,}")
+            logger.info(f"  Total this call: {call['input_tokens'] + call['output_tokens']:,}")
+        
+        # Print grand total
+        logger.info(f"\n💰 Grand Totals:")
+        logger.info(f"  Total Calls: {len(self.function_calls)}")
+        logger.info(f"  Total Input Tokens: {self.input_tokens:,}")
+        logger.info(f"  Total Output Tokens: {self.output_tokens:,}")
+        logger.info(f"  Total Tokens: {self.input_tokens + self.output_tokens:,}")
+
 class ClaudeWrapper(LLMWrapper):
-    def __init__(self, model: ChatAnthropic):
+    def __init__(self):
         super().__init__()
-        self.model = model
-        self.first_call = True
-        self.messages = []
+        self.model = Anthropic(api_key=Config.ANTHROPIC_API_KEY)
+        self.messages = []  # Store conversation history
         self.rate_limiter = RATE_LIMITERS["claude"]
         logger.info("🤖 Initialized Claude wrapper")
 
     def get_response(self, prompt: str = None) -> str:
-        if prompt:
-            message_content = []
+        try:
+            if not prompt:
+                return ""
             
+            # Only process PDFs on first call
             if self.first_call and self.file_contents:
                 logger.info("📄 First call - processing PDFs")
+                message_content = []
                 for content in self.file_contents:
                     try:
                         with open(content['file_path'], 'rb') as file:
@@ -82,69 +137,44 @@ class ClaudeWrapper(LLMWrapper):
                             })
                     except Exception as e:
                         logger.error(f"Error processing PDF: {str(e)}")
+                
+                # Add PDF content to messages
+                self.messages.append({
+                    "role": "user",
+                    "content": message_content
+                })
                 self.first_call = False
+                logger.info("📨 First call - sent PDFs to Claude")
             
-            message_content.append({
-                "type": "text",
-                "text": prompt
-            })
-            
+            # Add new prompt to messages
             self.messages.append({
                 "role": "user",
-                "content": message_content
+                "content": [{"type": "text", "text": prompt}]
             })
             
-        try:
-            estimated_tokens = len(str(self.messages)) * 1.3
-            self.rate_limiter.check_limits(int(estimated_tokens))
-            
+            # Get response using full conversation history
             result = self.model.invoke(
                 self.messages,
-                max_tokens=4096,
-                temperature=0.7
+                max_tokens=Config.CLAUDE_MAX_TOKENS,
+                temperature=Config.TEMPERATURE
             )
             
-            # Track token usage
-            token_tracker.track_usage(
-                input_text=str(self.messages),
-                output_text=result.content,
-                model=Config.CLAUDE_MODEL,
-                endpoint="messages"
-            )
+            if hasattr(result, 'usage'):
+                self._track_usage(
+                    input_tokens=result.usage.input_tokens,
+                    output_tokens=result.usage.completion_tokens,
+                    model=Config.CLAUDE_MODEL
+                )
             
+            # Add response to conversation history
+            response_text = result.content
             self.messages.append({
                 "role": "assistant",
-                "content": result.content
+                "content": response_text
             })
             
-            response_text = result.content
-            if response_text.count('{') != response_text.count('}'):
-                logger.warning("⚠️ Incomplete JSON detected, requesting completion")
-                completion_prompt = "Please complete the JSON response. Return ONLY the complete JSON."
-                
-                self.rate_limiter.check_limits(1000)
-                
-                completion = self.model.invoke(
-                    self.messages + [{
-                        "role": "user", 
-                        "content": [{"type": "text", "text": completion_prompt}]
-                    }],
-                    max_tokens=4096,
-                    temperature=0.7
-                )
-                
-                # Track completion request tokens
-                token_tracker.track_usage(
-                    input_text=completion_prompt,
-                    output_text=completion.content,
-                    model=Config.CLAUDE_MODEL,
-                    endpoint="messages/completion"
-                )
-                
-                response_text = completion.content
-            
             return response_text
-                
+            
         except Exception as e:
             logger.error(f"❌ Error from Claude: {str(e)}")
             raise
@@ -155,111 +185,94 @@ class GeminiWrapper(LLMWrapper):
         genai.configure(api_key=Config.GOOGLE_API_KEY)
         self.model = genai.GenerativeModel(Config.GEMINI_MODEL)
         self.first_call = True
-        self.chat = None
+        self.chat = self.model.start_chat()
         self.rate_limiter = RATE_LIMITERS["gemini"]
+        self.last_total_tokens = 0  # Track previous total for delta calculation
         logger.info(f"🤖 Initialized Gemini wrapper with model: {Config.GEMINI_MODEL}")
 
     def get_response(self, prompt: str = None) -> str:
-        if prompt:
+        try:
+            if not prompt:
+                return ""
+            
+            # Only process PDFs on first call
             if self.first_call and self.file_contents:
                 logger.info("📄 First call - processing PDFs")
-                try:
-                    self.chat = self.model.start_chat()
-                    
-                    contents = []
-                    for content in self.file_contents:
+                contents = ""
+                for content in self.file_contents:
+                    try:
                         with open(content['file_path'], 'rb') as file:
-                            contents.append({
-                                "mime_type": "application/pdf",
-                                "data": file.read()
-                            })
-                    
-                    contents.append({
-                        "text": "Here are the bank statements. Please analyze them."
-                    })
-                    
-                    self.rate_limiter.check_limits(2000)
-                    self.chat.send_message(contents)
-                    
-                    # Track PDF processing request
-                    token_tracker.track_usage(
-                        input_text=str(contents),
-                        output_text="",
-                        model=Config.GEMINI_MODEL,
-                        endpoint="start_chat"
+                            pdf_reader = PyPDF2.PdfReader(file)
+                            for page in pdf_reader.pages:
+                                contents += page.extract_text() + "\n\n"
+                    except Exception as e:
+                        logger.error(f"Error processing PDF: {str(e)}")
+                
+                if contents:
+                    # Send PDF content only once
+                    pdf_response = self.chat.send_message(
+                        f"Here are the bank statements. Please acknowledge receipt with a brief confirmation:\n\n{contents}"
                     )
-                    
-                    self.first_call = False
-                    
-                except Exception as e:
-                    logger.error(f"Error processing PDFs: {str(e)}")
-                    raise
+                    if hasattr(pdf_response, 'usage_metadata') and pdf_response.usage_metadata:
+                        self._track_usage(
+                            input_tokens=pdf_response.usage_metadata.prompt_token_count,
+                            output_tokens=pdf_response.usage_metadata.candidates_token_count,
+                            model=Config.GEMINI_MODEL
+                        )
+                
+                self.first_call = False
+                logger.info("📨 First call - sent PDFs to Gemini")
             
-            try:
-                if not self.chat:
-                    self.chat = self.model.start_chat()
-                
-                estimated_tokens = len(prompt) * 1.3
-                self.rate_limiter.check_limits(int(estimated_tokens))
-                
-                response = self.chat.send_message(prompt)
-                
-                # Track main request
-                token_tracker.track_usage(
-                    input_text=prompt,
-                    output_text=response.text,
-                    model=Config.GEMINI_MODEL,
-                    endpoint="send_message"
+            # Send the prompt
+            response = self.chat.send_message(prompt)
+            
+            if hasattr(response, 'usage_metadata') and response.usage_metadata:
+                self._track_usage(
+                    input_tokens=response.usage_metadata.prompt_token_count,
+                    output_tokens=response.usage_metadata.candidates_token_count,
+                    model=Config.GEMINI_MODEL
+                )
+            
+            response_text = response.text
+            
+            if response_text.count('{') != response_text.count('}'):
+                logger.warning("⚠️ Incomplete JSON detected, requesting completion")
+                completion = self.chat.send_message(
+                    "Please complete the JSON response. Return ONLY the complete JSON."
                 )
                 
-                logger.info("✅ Received response from Gemini")
-                
-                response_text = response.text
-                if response_text.count('{') != response_text.count('}'):
-                    logger.warning("⚠️ Incomplete JSON detected, requesting completion")
-                    
-                    self.rate_limiter.check_limits(1000)
-                    
-                    completion = self.chat.send_message(
-                        "Please complete the JSON response. Return ONLY the complete JSON."
+                if hasattr(completion, 'usage_metadata') and completion.usage_metadata:
+                    self._track_usage(
+                        input_tokens=completion.usage_metadata.prompt_token_count,
+                        output_tokens=completion.usage_metadata.candidates_token_count,
+                        model=Config.GEMINI_MODEL
                     )
-                    
-                    # Track completion request
-                    token_tracker.track_usage(
-                        input_text="Please complete the JSON response",
-                        output_text=completion.text,
-                        model=Config.GEMINI_MODEL,
-                        endpoint="send_message/completion"
-                    )
-                    
-                    response_text = completion.text
                 
-                return response_text
-                
-            except Exception as e:
-                if "429" in str(e):
-                    logger.warning(f"🚫 Gemini rate limit hit, retrying...")
-                    raise
-                logger.error(f"❌ Error from Gemini: {str(e)}")
-                raise
+                response_text = completion.text
+            
+            return response_text
+            
+        except Exception as e:
+            if "429" in str(e):
+                logger.warning(f"🚫 Gemini rate limit hit, retrying...")
+            logger.error(f"❌ Error from Gemini: {str(e)}")
+            raise
 
 class OpenAIWrapper(LLMWrapper):
     def __init__(self):
         super().__init__()
         self.client = OpenAI(api_key=Config.OPENAI_API_KEY)
         self.model = Config.OPENAI_MODEL
-        self.first_call = True
-        self.pdf_content = None
+        self.messages = []  # Store conversation history
         self.rate_limiter = RATE_LIMITERS["openai"]
         logger.info(f"🤖 Initialized OpenAI wrapper with model: {self.model}")
 
     def get_response(self, prompt: str = None) -> str:
-        if prompt:
-            logger.info("➕ Adding new prompt to conversation")
-            logger.debug(f"Prompt preview: {str(prompt)[:100]}...")
+        try:
+            if not prompt:
+                return ""
             
-            messages = []
-            
+            # Only process PDFs on first call
             if self.first_call and self.file_contents:
                 logger.info("📄 First call - processing PDFs")
                 content_text = ""
@@ -273,88 +286,48 @@ class OpenAIWrapper(LLMWrapper):
                         logger.error(f"Error processing PDF: {str(e)}")
                 
                 if content_text:
-                    self.pdf_content = content_text
-                    messages.append({
+                    # Add PDF content to conversation history
+                    self.messages.append({
                         "role": "user",
                         "content": f"Here are the bank statements:\n\n{content_text}"
                     })
-                    
+                
                 self.first_call = False
                 logger.info("📨 First call - sent PDFs to OpenAI")
-            elif self.pdf_content:
-                messages.append({
-                    "role": "user",
-                    "content": f"Here are the bank statements:\n\n{self.pdf_content}"
-                })
             
-            messages.append({
+            # Add new prompt to conversation history
+            self.messages.append({
                 "role": "user",
                 "content": prompt
             })
             
-            try:
-                logger.info(f"📨 Sending to OpenAI with {len(messages)} messages")
-                
-                estimated_tokens = len(str(messages)) * 1.3
-                self.rate_limiter.check_limits(int(estimated_tokens))
-                
-                response = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=messages,
-                    temperature=0.7,
-                    max_tokens=4000,
-                    presence_penalty=0,
-                    frequency_penalty=0
+            # Get response using full conversation history
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=self.messages,
+                max_tokens=Config.OPENAI_MAX_TOKENS,
+                temperature=Config.TEMPERATURE
+            )
+            
+            if hasattr(response, 'usage'):
+                self._track_usage(
+                    input_tokens=response.usage.prompt_tokens,
+                    output_tokens=response.usage.completion_tokens,
+                    model=Config.OPENAI_MODEL
                 )
-                
-                # Track main request
-                token_tracker.track_usage(
-                    input_text=str(messages),
-                    output_text=response.choices[0].message.content,
-                    model=Config.OPENAI_MODEL,
-                    endpoint="chat/completions"
-                )
-                
-                response_text = response.choices[0].message.content
-                
-                if response_text.count('{') != response_text.count('}'):
-                    logger.warning("⚠️ Incomplete JSON detected, requesting completion")
-                    messages.append({
-                        "role": "assistant",
-                        "content": response_text
-                    })
-                    messages.append({
-                        "role": "user",
-                        "content": "Please complete the JSON response. Return ONLY the complete JSON."
-                    })
-                    
-                    self.rate_limiter.check_limits(1000)
-                    
-                    completion = self.client.chat.completions.create(
-                        model=self.model,
-                        messages=messages,
-                        temperature=0.7,
-                        max_tokens=4000,
-                        presence_penalty=0,
-                        frequency_penalty=0
-                    )
-                    
-                    # Track completion request
-                    token_tracker.track_usage(
-                        input_text=str(messages[-2:]),
-                        output_text=completion.choices[0].message.content,
-                        model=Config.OPENAI_MODEL,
-                        endpoint="chat/completions/completion"
-                    )
-                    
-                    response_text = completion.choices[0].message.content
-                
-                logger.info("✅ OpenAI response received")
-                return response_text
-                
-            except Exception as e:
-                logger.error(f"❌ Error from OpenAI: {str(e)}")
-                raise
+            
+            # Add response to conversation history
+            response_text = response.choices[0].message.content
+            self.messages.append({
+                "role": "assistant",
+                "content": response_text
+            })
+            
+            return response_text
+            
+        except Exception as e:
+            logger.error(f"❌ Error in OpenAI wrapper: {str(e)}")
+            raise
 
     def _bind_tools(self, tools: List[Any]):
         """Configure tools for OpenAI"""
@@ -365,18 +338,12 @@ class LLMFactory:
     @staticmethod
     def create_llm(provider: LLMProvider = None) -> LLMWrapper:
         """Factory method that produces wrapped LLM instances"""
-        # Use provided provider or fall back to config
         provider = provider or Config.LLM_PROVIDER
         
         logger.info(f"🏭 Creating new LLM instance for provider: {provider}")
         
         if provider == LLMProvider.CLAUDE:
-            model = ChatAnthropic(
-                model=Config.CLAUDE_MODEL,
-                anthropic_api_key=Config.ANTHROPIC_API_KEY,
-                temperature=Config.TEMPERATURE
-            )
-            return ClaudeWrapper(model)
+            return ClaudeWrapper()
         elif provider == LLMProvider.GEMINI:
             return GeminiWrapper()
         elif provider == LLMProvider.OPENAI:

@@ -17,25 +17,20 @@ from app.tools.analysis_tools import calculate_average_daily_balance, check_nsf,
 from app.services.llm_factory import LLMFactory
 from app.config import Config, LLMProvider
 import json
-from app.services.token_tracker import token_tracker
 # Configure logging
 logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
+    level=logging.DEBUG,  # Changed from INFO to DEBUG
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
-    # Set httpcore to only show WARNING and above
-logging.getLogger('httpcore').setLevel(logging.WARNING)
-logging.getLogger('httpx').setLevel(logging.WARNING)
-    
-    # Get our application logger
-logger = logging.getLogger('app')
-logger.setLevel(logging.INFO)
+# Create logger for this module
+logger = logging.getLogger(__name__)
+
+# Set specific loggers to DEBUG level
+logging.getLogger('app.services.llm_factory').setLevel(logging.DEBUG)
 
 # Add near the top of the file, after other imports
 content_service = ContentService()
-
-
 
 def get_api_key():
     api_key = os.getenv('ANTHROPIC_API_KEY')
@@ -45,9 +40,6 @@ def get_gemini_api_key():
     return api_key
 
 app = Flask(__name__)
-
-
-
 
 @app.route('/underwrite', methods=['POST'])
 def underwrite():
@@ -171,26 +163,23 @@ def underwrite():
         
         # Dynamic model mapping using enum values
         logger.info("\nBreakdown by Model:")
-        for provider in LLMProvider:
-            model_attr = f"{provider.value.upper()}_MODEL"  # e.g., "CLAUDE_MODEL", "GEMINI_MODEL"
-            if hasattr(Config, model_attr):
-                model = getattr(Config, model_attr)
-                if model:  # Check if model is configured
-                    model_usage = token_tracker.get_total_usage(model=model)
-                    if model_usage['total_tokens'] > 0:
-                        logger.info(f"\n{model}:")
-                        logger.info(f"  Input Tokens: {model_usage['total_input_tokens']:,}")
-                        logger.info(f"  Output Tokens: {model_usage['total_output_tokens']:,}")
-                        logger.info(f"  Total Tokens: {model_usage['total_tokens']:,}")
+     
         
-        return master_response
+        # Log final token usage at the end
+        logger.info(f"\n💰 Token Usage for {Config.LLM_PROVIDER}:")
+        logger.info(f"Input tokens: {llm.input_tokens:,}")
+        logger.info(f"Output tokens: {llm.output_tokens:,}")
+        logger.info(f"Total tokens: {llm.input_tokens + llm.output_tokens:,}")
+        
+        # Print function-level summary
+        llm.print_function_summary()
+        
+        return jsonify(master_response)
 
     except Exception as e:
-        logger.error("Error in underwrite", exc_info=True)
-        return jsonify({
-            "error": str(e),
-            "traceback": traceback.format_exc() if debug_mode else None
-        }), 500
+        logger.error(f"Error in underwrite: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
