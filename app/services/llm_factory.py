@@ -23,9 +23,6 @@ class LLMWrapper:
     def __init__(self):
         self.file_contents = None
         self.first_call = True
-        self.function_calls = []
-        self.input_tokens = 0
-        self.output_tokens = 0
 
     def set_file_contents(self, contents: List[Dict[str, Any]]) -> None:
         """Set the file contents and verify they were received."""
@@ -52,66 +49,14 @@ class LLMWrapper:
         logger.info(f"🔧 Binding tools: {[t.name for t in tools]}")
         self.tools = tools
     
-    def _track_usage(self, input_tokens: int, output_tokens: int, model: str):
-        """Track token usage for an API call"""
-        # Get the calling function name by going up the stack
-        frame = inspect.currentframe()
-        try:
-            caller = 'unknown_function'
-            if frame and frame.f_back and frame.f_back.f_back:
-                caller = frame.f_back.f_back.f_code.co_name
-        finally:
-            del frame
-        
-        # Update running totals
-        self.input_tokens += input_tokens
-        self.output_tokens += output_tokens
-        
-        # Store this call's details
-        self.function_calls.append({
-            'function': caller,
-            'input_tokens': input_tokens,
-            'output_tokens': output_tokens,
-            'total_tokens': input_tokens + output_tokens,
-            'model': model
-        })
-        
-        logger.info(f"🔄 API Call to {model}")
-        logger.info(f"  Function: {caller}")
-        logger.info(f"  Input tokens: {input_tokens:,}")
-        logger.info(f"  Output tokens: {output_tokens:,}")
-        logger.info(f"  Total this call: {input_tokens + output_tokens:,}")
-        logger.info(f"  Running total: {self.input_tokens + self.output_tokens:,}")
-
     def get_response(self, prompt: str = None) -> str:
         raise NotImplementedError
-
-    def print_function_summary(self):
-        """Print detailed summary of all function calls"""
-        logger.info("\n📊 Function Call Details:")
-        
-        # Print each call
-        for i, call in enumerate(self.function_calls, 1):
-            logger.info(f"\nCall #{i}:")
-            logger.info(f"  Function: {call['function']}")
-            logger.info(f"  Model: {call['model']}")
-            logger.info(f"  New Input tokens: {call['input_tokens']:,}")
-            logger.info(f"  Output tokens: {call['output_tokens']:,}")
-            logger.info(f"  Total this call: {call['input_tokens'] + call['output_tokens']:,}")
-        
-        # Print grand total
-        logger.info(f"\n💰 Grand Totals:")
-        logger.info(f"  Total Calls: {len(self.function_calls)}")
-        logger.info(f"  Total Input Tokens: {self.input_tokens:,}")
-        logger.info(f"  Total Output Tokens: {self.output_tokens:,}")
-        logger.info(f"  Total Tokens: {self.input_tokens + self.output_tokens:,}")
 
 class ClaudeWrapper(LLMWrapper):
     def __init__(self):
         super().__init__()
         self.model = Anthropic(api_key=Config.ANTHROPIC_API_KEY)
         self.messages = []  # Store conversation history
-        self.rate_limiter = RATE_LIMITERS["claude"]
         logger.info("🤖 Initialized Claude wrapper")
 
     def get_response(self, prompt: str = None) -> str:
@@ -152,22 +97,16 @@ class ClaudeWrapper(LLMWrapper):
                 "content": [{"type": "text", "text": prompt}]
             })
             
-            # Get response using full conversation history
-            result = self.model.invoke(
-                self.messages,
+            # Get response using messages.create
+            result = self.model.messages.create(
+                model=Config.CLAUDE_MODEL,
+                messages=self.messages,
                 max_tokens=Config.CLAUDE_MAX_TOKENS,
                 temperature=Config.TEMPERATURE
             )
             
-            if hasattr(result, 'usage'):
-                self._track_usage(
-                    input_tokens=result.usage.input_tokens,
-                    output_tokens=result.usage.completion_tokens,
-                    model=Config.CLAUDE_MODEL
-                )
-            
             # Add response to conversation history
-            response_text = result.content
+            response_text = result.content[0].text
             self.messages.append({
                 "role": "assistant",
                 "content": response_text
@@ -213,25 +152,12 @@ class GeminiWrapper(LLMWrapper):
                     pdf_response = self.chat.send_message(
                         f"Here are the bank statements. Please acknowledge receipt with a brief confirmation:\n\n{contents}"
                     )
-                    if hasattr(pdf_response, 'usage_metadata') and pdf_response.usage_metadata:
-                        self._track_usage(
-                            input_tokens=pdf_response.usage_metadata.prompt_token_count,
-                            output_tokens=pdf_response.usage_metadata.candidates_token_count,
-                            model=Config.GEMINI_MODEL
-                        )
                 
                 self.first_call = False
                 logger.info("📨 First call - sent PDFs to Gemini")
             
             # Send the prompt
             response = self.chat.send_message(prompt)
-            
-            if hasattr(response, 'usage_metadata') and response.usage_metadata:
-                self._track_usage(
-                    input_tokens=response.usage_metadata.prompt_token_count,
-                    output_tokens=response.usage_metadata.candidates_token_count,
-                    model=Config.GEMINI_MODEL
-                )
             
             response_text = response.text
             
@@ -240,13 +166,6 @@ class GeminiWrapper(LLMWrapper):
                 completion = self.chat.send_message(
                     "Please complete the JSON response. Return ONLY the complete JSON."
                 )
-                
-                if hasattr(completion, 'usage_metadata') and completion.usage_metadata:
-                    self._track_usage(
-                        input_tokens=completion.usage_metadata.prompt_token_count,
-                        output_tokens=completion.usage_metadata.candidates_token_count,
-                        model=Config.GEMINI_MODEL
-                    )
                 
                 response_text = completion.text
             
@@ -308,13 +227,6 @@ class OpenAIWrapper(LLMWrapper):
                 max_tokens=Config.OPENAI_MAX_TOKENS,
                 temperature=Config.TEMPERATURE
             )
-            
-            if hasattr(response, 'usage'):
-                self._track_usage(
-                    input_tokens=response.usage.prompt_tokens,
-                    output_tokens=response.usage.completion_tokens,
-                    model=Config.OPENAI_MODEL
-                )
             
             # Add response to conversation history
             response_text = response.choices[0].message.content

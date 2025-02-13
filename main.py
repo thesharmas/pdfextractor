@@ -19,7 +19,7 @@ from app.config import Config, LLMProvider
 import json
 # Configure logging
 logging.basicConfig(
-    level=logging.DEBUG,  # Changed from INFO to DEBUG
+    level=logging.INFO,  # Changed from INFO to DEBUG
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 
@@ -27,7 +27,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Set specific loggers to DEBUG level
-logging.getLogger('app.services.llm_factory').setLevel(logging.DEBUG)
 
 # Add near the top of the file, after other imports
 content_service = ContentService()
@@ -164,15 +163,6 @@ def underwrite():
         # Dynamic model mapping using enum values
         logger.info("\nBreakdown by Model:")
      
-        
-        # Log final token usage at the end
-        logger.info(f"\n💰 Token Usage for {Config.LLM_PROVIDER}:")
-        logger.info(f"Input tokens: {llm.input_tokens:,}")
-        logger.info(f"Output tokens: {llm.output_tokens:,}")
-        logger.info(f"Total tokens: {llm.input_tokens + llm.output_tokens:,}")
-        
-        # Print function-level summary
-        llm.print_function_summary()
         
         return jsonify(master_response)
 
