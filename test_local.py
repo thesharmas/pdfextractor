@@ -6,6 +6,7 @@ import logging
 from dotenv import load_dotenv
 from app.config import LLMProvider
 import argparse
+from datetime import datetime
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, 
@@ -43,61 +44,61 @@ def test_underwrite(file_paths, provider=None):
         logger.error(f"Response content: {response.text}")
     return response.json()
 
-def compare_responses(gemini_response, claude_response, openai_response):
-    logger.info("\n=== Comparison of Responses ===\n")
-    
-    # First, print raw responses if there are errors
-    if any('error' in resp for resp in [gemini_response, claude_response, openai_response]):
-        logger.error("⚠️ Errors detected in responses:\n")
-        for name, resp in [("Gemini", gemini_response), ("Claude", claude_response), ("OpenAI", openai_response)]:
-            if 'error' in resp:
-                logger.error(f"{name} Error: {resp.get('error')}")
-                logger.error(f"Traceback: {resp.get('traceback', 'No traceback')}")
-        return
 
-    # Print full responses for debugging
-    for name, resp in [("Gemini", gemini_response), ("Claude", claude_response), ("OpenAI", openai_response)]:
-        logger.info(f"\nFull {name} Response:")
-        logger.info(json.dumps(resp, indent=2))
+def parse_response(response_data):
+    """Parse raw response into standardized format and pretty print"""
+    if isinstance(response_data, str):
+        try:
+            parsed = json.loads(response_data)
+        except json.JSONDecodeError:
+            parsed = json.loads(response_data.replace('\\"', '"'))
+    else:
+        parsed = response_data
+
+    # Get and parse the details string
+    details_str = parsed.get("metrics", {}).get("average_daily_balance", {}).get("details")
+    if isinstance(details_str, str):
+        details = json.loads(details_str)
+    else:
+        details = details_str or {}
+    
+    # Convert daily balances to transactions
+    transactions = []
+    daily_balances = details.get("daily_balances", {})
+    for date, balance in sorted(daily_balances.items()):
+        transactions.append({
+            "date": date,
+            "balance": balance,
+            "is_business_day": datetime.strptime(date, '%Y-%m-%d').weekday() < 5
+        })
+    
+    # Pretty print the transactions
+    if transactions:
+        logger.info("\n📝 Extracted Transactions:")
+        logger.info("-" * 80)
+        for trans in transactions[:5]:  # Show first 5 transactions
+            logger.info(f"Date: {trans['date']:<12} | Balance: ${trans['balance']:>10,.2f} | Business Day: {str(trans['is_business_day']):>5}")
+        if len(transactions) > 5:
+            logger.info("...")
+        logger.info(f"Total transactions: {len(transactions)}")
+        logger.info("-" * 80)
+    
+    return transactions
+
+
+
+def save_response(response_data, model_name):
+    """Save both raw and parsed responses to disk with model name prefix"""
+    raw_filename = f"{model_name.lower()}_raw_response.json"
     
     try:
-        # Compare metrics
-        logger.info("\n📊 METRICS COMPARISON:")
+        # Save raw response
+        with open(raw_filename, 'w') as f:
+            json.dump(response_data, f, indent=2)
+        logger.info(f"✍️  Saved raw response to {raw_filename}")
         
-        # Compare average daily balance
-        balances = {
-            "Gemini": gemini_response.get("metrics", {}).get("average_daily_balance", {}).get("amount", 0),
-            "Claude": claude_response.get("metrics", {}).get("average_daily_balance", {}).get("amount", 0),
-            "OpenAI": openai_response.get("metrics", {}).get("average_daily_balance", {}).get("amount", 0)
-        }
-        
-        logger.info(f"\nAverage Daily Balance:")
-        for name, balance in balances.items():
-            logger.info(f"{name}: ${balance:,.2f}")
-        
-        # Compare NSF information
-        nsf_info = {
-            "Gemini": gemini_response.get("metrics", {}).get("nsf_information", {}),
-            "Claude": claude_response.get("metrics", {}).get("nsf_information", {}),
-            "OpenAI": openai_response.get("metrics", {}).get("nsf_information", {})
-        }
-        
-        logger.info(f"\nNSF Information:")
-        for name, nsf in nsf_info.items():
-            logger.info(f"{name}: {nsf.get('incident_count', 0)} incidents, ${nsf.get('total_fees', 0):,.2f} in fees")
-        
-        # Compare orchestration decisions
-        logger.info("\n🤖 ORCHESTRATION DECISIONS:")
-        for name, resp in [("Gemini", gemini_response), ("Claude", claude_response), ("OpenAI", openai_response)]:
-            logger.info(f"\n{name} recommended:")
-            logger.info(resp.get("orchestration", "No orchestration data"))
-
     except Exception as e:
-        logger.error(f"\n⚠️ Error while comparing responses: {str(e)}")
-        logger.error("\nRaw Responses:")
-        for name, resp in [("Gemini", gemini_response), ("Claude", claude_response), ("OpenAI", openai_response)]:
-            logger.error(f"\n{name} Response:")
-            logger.error(json.dumps(resp, indent=2))
+        logger.error(f"❌ Failed to save responses: {str(e)}")
 
 def main():
     parser = argparse.ArgumentParser(description='Test LLM providers')
@@ -107,11 +108,12 @@ def main():
 
     # Use local PDF files
     file_paths = [
-        "./Bank5.pdf",
-        "./Bank6.pdf",
-        "./Bank8.pdf",
-        "./Bank10.pdf",
-        "./Bank11.pdf"
+        "./1.pdf",
+        "./2.pdf",
+        "./3.pdf",
+        "./4.pdf",
+        "./5.pdf",
+        "./6.pdf"
     ]
     
     # Verify files exist
@@ -120,27 +122,27 @@ def main():
             logger.warning(f"⚠️ Warning: File not found: {path}")
     
     if args.provider == 'all':
-        # Run all providers and compare
-        logger.info("\n🚀 Testing with Gemini...")
+        logger.info("\n🚀 Testing with all providers...")
+        
         gemini_response = test_underwrite(file_paths, provider=LLMProvider.GEMINI)
+        save_response(gemini_response, "gemini")
         
-        logger.info("\n🚀 Testing with Claude...")
         claude_response = test_underwrite(file_paths, provider=LLMProvider.CLAUDE)
+        save_response(claude_response, "claude")
         
-        logger.info("\n🚀 Testing with OpenAI...")
         openai_response = test_underwrite(file_paths, provider=LLMProvider.OPENAI)
+        save_response(openai_response, "openai")
         
-        # Compare all responses
-        compare_responses(gemini_response, claude_response, openai_response)
+    
+        
     else:
         # Run single provider
         provider = LLMProvider(args.provider)
         logger.info(f"\n🚀 Testing with {provider.name}...")
         response = test_underwrite(file_paths, provider=provider)
-        
-        # Print single response
-        logger.info("\n📊 RESPONSE:")
-        logger.info(json.dumps(response, indent=2))
+        save_response(response, provider.name)
+
+       
 
 if __name__ == "__main__":
     main()

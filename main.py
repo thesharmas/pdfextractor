@@ -13,11 +13,11 @@ from typing import List, Dict, Any, Tuple
 import logging
 from pydantic import BaseModel
 from app.services.content_service import ContentService
-from app.tools.analysis_tools import calculate_average_daily_balance, check_nsf, set_llm
+from app.tools.analysis_tools import calculate_average_daily_balance, check_nsf, set_llm,check_statement_continuity,extract_daily_balances
 from app.services.llm_factory import LLMFactory
 from app.config import Config, LLMProvider
 import json
-
+from app.services.token_tracker import token_tracker
 # Configure logging
 logging.basicConfig(
         level=logging.INFO,
@@ -85,7 +85,7 @@ def underwrite():
             logger.info(f"Using default provider from config: {Config.LLM_PROVIDER}")
             llm = LLMFactory.create_llm()
 
-        llm.set_tools([calculate_average_daily_balance, check_nsf])
+        llm.set_tools([extract_daily_balances, check_nsf, check_statement_continuity])
 
         # Process PDFs once and store in the LLM
         merged_pdf_path = content_service.merge_pdfs(file_paths)
@@ -98,11 +98,12 @@ def underwrite():
             Please respond with ONLY the analysis name, one per line:
             - balance (for average daily balance)
             - nsf (for NSF fee analysis)
-
+            - continuity (for statement continuity analysis)
+            
             Example response:
             balance
             nsf
-
+            continuity
             Do not explain or add any other text."""
         
         result_content = llm.get_response(prompt=orchestration_prompt)
@@ -111,47 +112,78 @@ def underwrite():
         # Parse recommended analyses
         recommended_analyses = set(result_content.lower().split('\n'))
         
-        balance = None
-        balance_details = None
-        nsf_fees = None
-        nsf_count = None
-        nsf_details = None
+        # First check statement continuity
+        logger.info("Checking statement continuity...")
+        continuity_json = check_statement_continuity("None")
+        continuity_data = json.loads(continuity_json)
+        
+        is_contiguous = continuity_data.get("analysis", {}).get("is_contiguous", False)
+        explanation = continuity_data.get("analysis", {}).get("explanation", "No explanation provided")
+        gap_details = continuity_data.get("analysis", {}).get("gap_details", [])
+        
+        if not is_contiguous:
+            logger.warning("❌ Bank statements are not contiguous!")
+            logger.warning(f"Analysis: {explanation}")
+            if gap_details:
+                logger.warning(f"Found gaps: {gap_details}")
+            return {
+                "metrics": {
+                    "statement_continuity": continuity_data
+                },
+                "debug": {
+                    "files_processed": len(file_paths)
+                },
+                "orchestration": "continuity_check"
+            }
+        
+        # If statements are contiguous, proceed with analysis
+        logger.info("✅ Bank statements are contiguous, proceeding with analysis...")
+        master_response = {
+            "metrics": {
+                "statement_continuity": continuity_data
+            },
+            "debug": {
+                "files_processed": len(file_paths)
+            }
+        }
         
         # Track which analyses have been run
         completed_analyses = set()
         
         for analysis in recommended_analyses:
             analysis = analysis.strip()
+            
             if 'balance' in analysis and 'balance' not in completed_analyses:
-                logger.info("Calling calculate_average_daily_balance")
-                balance, balance_details = calculate_average_daily_balance("None")
+                logger.info("Calling extract_daily_balances")
+                input_data = json.dumps({"continuity_data": continuity_data})
+                balances_json = extract_daily_balances(input_data)
+                master_response["metrics"]["daily_balances"] = json.loads(balances_json)
                 completed_analyses.add('balance')
                 
             elif 'nsf' in analysis and 'nsf' not in completed_analyses:
                 logger.info("Calling check_nsf")
-                nsf_fees, nsf_count, nsf_details = check_nsf("None")
+                nsf_json = check_nsf("None")
+                master_response["metrics"]["nsf_information"] = json.loads(nsf_json)
                 completed_analyses.add('nsf')
         
-        # Prepare response
-        response = {
-            "metrics": {
-                "average_daily_balance": {
-                    "amount": balance,
-                    "details": balance_details
-                },
-                "nsf_information": {
-                    "total_fees": nsf_fees,
-                    "incident_count": nsf_count,
-                    "details": nsf_details
-                }
-            },
-            "orchestration": result_content,
-            "debug": {
-                "files_processed": len(pdf_contents)
-            }
-        }
-
-        return jsonify(response)
+        # Add orchestration info
+        master_response["orchestration"] = "\n".join(completed_analyses)
+        
+        # Dynamic model mapping using enum values
+        logger.info("\nBreakdown by Model:")
+        for provider in LLMProvider:
+            model_attr = f"{provider.value.upper()}_MODEL"  # e.g., "CLAUDE_MODEL", "GEMINI_MODEL"
+            if hasattr(Config, model_attr):
+                model = getattr(Config, model_attr)
+                if model:  # Check if model is configured
+                    model_usage = token_tracker.get_total_usage(model=model)
+                    if model_usage['total_tokens'] > 0:
+                        logger.info(f"\n{model}:")
+                        logger.info(f"  Input Tokens: {model_usage['total_input_tokens']:,}")
+                        logger.info(f"  Output Tokens: {model_usage['total_output_tokens']:,}")
+                        logger.info(f"  Total Tokens: {model_usage['total_tokens']:,}")
+        
+        return master_response
 
     except Exception as e:
         logger.error("Error in underwrite", exc_info=True)

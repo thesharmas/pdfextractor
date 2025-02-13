@@ -2,4 +2,7 @@ token.json
 credentials.json
 kanmon/
 personal/
+# LLM Response Files
+*_raw_response.json
+*_parsed_response.json
 .env
