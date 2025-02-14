@@ -19,7 +19,7 @@ from app.config import Config, LLMProvider
 import json
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,  # Changed from INFO to DEBUG
+    level=logging.INFO,  
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 

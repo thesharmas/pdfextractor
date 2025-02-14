@@ -29,9 +29,7 @@ class LLMWrapper:
         self.file_contents = contents
         
         verification_prompt = """I've just shared some bank statements with you. 
-        To verify you received them correctly:
-        1. How many pdfs did you receive?
-        2. Can you see any bank transaction data and returned fee and overdraft fee data?
+        verify that you received them correctly and that you can see the data in the pdfs.
         Please be specific but brief."""
         
         logger.info("🔍 Verifying PDF content reception...")

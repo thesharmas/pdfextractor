@@ -34,53 +34,6 @@ class ContentService:
         logger.info(f"✅ Processed {len(contents)} files")
         return contents
 
-    def _prepare_for_claude(self, file_paths: List[str]) -> List[Dict]:
-        """Prepares content in Claude's format"""
-        file_contents = []
-        for file_path in file_paths:
-            try:
-                with open(file_path, 'rb') as file:
-                    pdf_content = file.read()
-                    file_contents.append({
-                        "type": "document",
-                        "source": {
-                            "type": "base64",
-                            "media_type": "application/pdf",
-                            "data": base64.b64encode(pdf_content).decode()
-                        }
-                    })
-            except Exception as e:
-                raise Exception(f"Failed to read file {file_path}: {str(e)}")
-        return file_contents
-
-    def _prepare_for_gemini(self, file_paths: List[str]) -> List[Any]:
-        """Prepares content in Gemini's format using file parts"""
-        file_contents = []
-
-        for file_path in file_paths:
-            try:
-                with open(file_path, 'rb') as file:
-                    pdf_content = file.read()
-                    file_contents.append({
-                        'mime_type': 'application/pdf',
-                        'data': pdf_content
-                    })
-            except Exception as e:
-                raise Exception(f"Failed to process file {file_path}: {str(e)}")
-        return file_contents
-
-    def add_prompt(self, file_contents: List[Union[Dict, Any]], prompt: str) -> List[Union[Dict, Any]]:
-        """Combines prompt with file contents for LLM processing"""
-        if Config.LLM_PROVIDER == LLMProvider.CLAUDE:
-            return [{"type": "text", "text": prompt}] + file_contents
-        elif Config.LLM_PROVIDER == LLMProvider.GEMINI:
-            prompt_dict = {    
-                "type": "text",
-                "text": prompt
-            }
-            return file_contents + [prompt_dict]  # Gemini expects prompt at the end
-        else:
-            raise ValueError(f"Unsupported LLM provider: {Config.LLM_PROVIDER}")
 
     def merge_pdfs(self, file_paths: List[str], output_path: str = "merged.pdf") -> str:
         """Merge multiple PDFs into one file"""
