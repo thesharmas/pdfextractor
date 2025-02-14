@@ -201,7 +201,7 @@ class OpenAIWrapper(LLMWrapper):
                         logger.error(f"Error processing PDF: {str(e)}")
                 
                 if content_text:
-                    # Add PDF content to conversation history
+                    # Add PDF content to conversation history without verification
                     self.messages.append({
                         "role": "user",
                         "content": f"Here are the bank statements:\n\n{content_text}"
