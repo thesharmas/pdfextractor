@@ -10,11 +10,6 @@ from PyPDF2 import PdfMerger
 logger = logging.getLogger(__name__)
 
 class ContentService:
-    def __init__(self):
-        """Initialize the service with Gemini if needed"""
-        if Config.LLM_PROVIDER == LLMProvider.GEMINI:
-            genai.configure(api_key=Config.GOOGLE_API_KEY)
-
     def prepare_file_content(self, file_paths: List[str]) -> List[Dict[str, Any]]:
         logger.info("🔄 Preparing file content...")
         contents = []
