@@ -146,10 +146,8 @@ class GeminiWrapper(LLMWrapper):
                         logger.error(f"Error processing PDF: {str(e)}")
                 
                 if contents:
-                    # Send PDF content only once
-                    pdf_response = self.chat.send_message(
-                        f"Here are the bank statements. Please acknowledge receipt with a brief confirmation:\n\n{contents}"
-                    )
+                    # Send PDF content without asking for verification
+                    self.chat.send_message(contents)
                 
                 self.first_call = False
                 logger.info("📨 First call - sent PDFs to Gemini")
