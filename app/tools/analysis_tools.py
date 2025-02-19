@@ -26,23 +26,6 @@ def set_llm(llm: Any) -> None:
     global _llm
     _llm = llm
 
-# Pydantic models for structured output
-class NSFFee(BaseModel):
-    """Structure for a single NSF fee"""
-    date: str = Field(description="Date the NSF fee was charged")
-    amount: float = Field(description="Amount of the NSF fee")
-    description: str = Field(description="Description of the fee")
-
-class NSFAnalysis(BaseModel):
-    """Structure for NSF fee analysis"""
-    total_fees: float = Field(description="Total amount of NSF fees")
-    incident_count: int = Field(description="Number of NSF incidents")
-    fees: List[NSFFee] = Field(description="List of individual NSF fees")
-
-class BalanceAnalysis(BaseModel):
-    """Structure for balance analysis"""
-    average_daily_balance: float = Field(description="Average daily balance")
-    details: str = Field(description="Explanation of the calculation")
 
 
 @tool
@@ -137,128 +120,6 @@ IMPORTANT:
             "total_fees": 0,
             "incident_count": 0
         })
-
-@tool
-def calculate_average_daily_balance(pdf_text: str = "None") -> Tuple[float, str]:
-    """
-    Calculate average daily balance from bank statements.
-    Returns tuple of (final_average, details_json_string)
-    """
-    prompt = """You are a JSON-only response bot. Extract ALL transactions from the bank statements provided.
-        
-    You must ONLY return a valid JSON object in this exact format, with no additional text or explanation:
-
-    {
-        "transactions": [
-            {
-                "date": "YYYY-MM-DD",
-                "balance": amount,
-                "is_business_day": boolean,
-                "description": "transaction description if available"
-            }
-        ]
-    }
-
-    CRITICAL RULES:
-    1. Return ONLY valid JSON - no extra text
-    2. Include EVERY transaction and balance from the statements
-    3. DO NOT interpolate or create transactions
-    4. DO NOT skip any transactions
-    5. Mark business days (Mon-Fri) as true, weekends as false
-    6. Round all amounts to 2 decimal places
-    7. Include the ending balance for each day that appears in statements
-    8. Order transactions by date ascending"""
-
-    # Get raw transactions from LLM
-    llm_response = _llm.get_llm_response(prompt=prompt)
-    transactions = llm_response.get("transactions", [])
-
-    # Calculate daily balances and averages
-    def is_business_day(date: datetime) -> bool:
-        return date.weekday() < 5  # 0-4 are Monday to Friday
-
-    # Sort transactions by date
-    sorted_trans = sorted(transactions, key=lambda x: x['date'])
-    
-    # Group transactions by month
-    monthly_data = {}
-    
-    current_period = {
-        'start_date': None,
-        'end_date': None,
-        'last_balance': None,
-        'business_days': 0
-    }
-    
-    for trans in sorted_trans:
-        date = datetime.strptime(trans['date'], '%Y-%m-%d')
-        month_key = date.strftime('%Y-%m')
-        
-        if month_key not in monthly_data:
-            monthly_data[month_key] = {
-                'daily_balances': {},
-                'statement_periods': [],
-                'sum': 0,
-                'days': 0
-            }
-        
-        # Handle statement periods
-        if current_period['start_date'] is None:
-            current_period['start_date'] = date
-            current_period['business_days'] = 1
-        elif (date - current_period['end_date']).days > 3:  # Gap detected
-            if current_period['business_days'] >= 3:  # Valid period
-                monthly_data[month_key]['statement_periods'].append({
-                    'start_date': current_period['start_date'].strftime('%Y-%m-%d'),
-                    'end_date': current_period['end_date'].strftime('%Y-%m-%d'),
-                    'days_in_period': (current_period['end_date'] - current_period['start_date']).days + 1
-                })
-            # Start new period
-            current_period = {
-                'start_date': date,
-                'end_date': date,
-                'last_balance': trans['balance'],
-                'business_days': 1
-            }
-        else:
-            # Fill in any missing days between last transaction and current
-            prev_date = current_period['end_date']
-            while prev_date < date - timedelta(days=1):
-                prev_date += timedelta(days=1)
-                if prev_date.month == date.month:
-                    monthly_data[month_key]['daily_balances'][prev_date.strftime('%Y-%m-%d')] = current_period['last_balance']
-            
-            current_period['end_date'] = date
-            current_period['last_balance'] = trans['balance']
-            if is_business_day(date):
-                current_period['business_days'] += 1
-        
-        # Store the actual transaction balance
-        monthly_data[month_key]['daily_balances'][trans['date']] = trans['balance']
-    
-    # Calculate monthly averages
-    for month_data in monthly_data.values():
-        total_sum = sum(month_data['daily_balances'].values())
-        total_days = len(month_data['daily_balances'])
-        month_data['sum'] = total_sum
-        month_data['days'] = total_days
-        month_data['average'] = total_sum / total_days if total_days > 0 else 0
-
-    # Return in the expected format
-    final_amount = sum(m['average'] for m in monthly_data.values()) / len(monthly_data) if monthly_data else 0
-    
-    details = {
-        "daily_balances": {
-            date: balance 
-            for month in monthly_data.values() 
-            for date, balance in month['daily_balances'].items()
-        },
-        "monthly_averages": monthly_data,
-        "total_months": len(monthly_data),
-        "FINAL_AMOUNT": final_amount
-    }
-    
-    return final_amount, json.dumps(details)
 
 @tool
 def check_statement_continuity(input_text: str) -> str:
@@ -441,12 +302,7 @@ def extract_daily_balances(input_text: str) -> str:
             try:
                 chunk_response = _llm.get_response(prompt=chunk_prompt)
                 
-                # Log raw response for debugging
-                logger.info("Raw chunk response:")
-                logger.info("-" * 50)
-                logger.info(chunk_response)
-                logger.info("-" * 50)
-                
+            
                 # Clean the response
                 cleaned_response = chunk_response.strip()
                 if "```json" in cleaned_response:
@@ -482,4 +338,246 @@ def extract_daily_balances(input_text: str) -> str:
     except Exception as e:
         logger.error(f"Error in extract_daily_balances: {str(e)}")
         logger.error(f"Full traceback:\n{traceback.format_exc()}")
-        return json.dumps({"daily_balances": []}) 
+        return json.dumps({"daily_balances": []})
+
+@tool
+def analyze_monthly_financials(input_str: str = "None") -> str:
+    """Analyzes monthly expenses and revenues from bank statements, providing statistical analysis."""
+    try:
+        prompt = """You are a JSON-only response bot. Based on the bank statements, please provide:
+        1. Monthly breakdown of expenses, revenues, and cashflow
+        2. Statistical analysis including standard deviation and averages
+        
+        Format your response as a JSON with this structure:
+        {
+            "monthly_data": {
+                "YYYY-MM": {
+                    "expenses": total_expenses,
+                    "revenue": total_revenue,
+                    "cashflow": revenue_minus_expenses
+                }
+            },
+            "statistics": {
+                "revenue": {
+                    "average": avg_monthly_revenue,
+                    "std_deviation": revenue_std_dev
+                },
+                "expenses": {
+                    "average": avg_monthly_expenses,
+                    "std_deviation": expenses_std_dev
+                },
+                "cashflow": {
+                    "average": avg_monthly_cashflow,
+                    "std_deviation": cashflow_std_dev
+                }
+            }
+        }
+        
+        IMPORTANT:
+        - Calculate cashflow as (revenue - expenses) for each month
+        - All amounts should be numbers (not strings)
+        - Round all amounts to 2 decimal places
+        - Include ALL months found in statements
+        - Ensure the JSON is valid and properly formatted
+        
+        Include only the JSON in your response, no additional text."""
+
+        logger.info("🔄 Calling LLM for monthly financials analysis")
+        response = _llm.get_response(prompt)
+        
+        logger.info("Raw response from LLM:")
+        logger.info("-" * 50)
+        logger.info(response)
+        logger.info("-" * 50)
+        
+        # Clean the response
+        cleaned_response = response.strip()
+        if "```json" in cleaned_response:
+            cleaned_response = cleaned_response.split("```json")[1]
+        if "```" in cleaned_response:
+            cleaned_response = cleaned_response.split("```")[0]
+        cleaned_response = cleaned_response.strip()
+        
+        logger.info("Cleaned response:")
+        logger.info("-" * 50)
+        logger.info(cleaned_response)
+        logger.info("-" * 50)
+        
+        # Validate JSON format
+        try:
+            json_response = json.loads(cleaned_response)
+            
+            # Validate required fields and structure
+            if "monthly_data" not in json_response or "statistics" not in json_response:
+                raise ValueError("Missing required top-level fields")
+                
+            for month, data in json_response["monthly_data"].items():
+                if not all(k in data for k in ["expenses", "revenue", "cashflow"]):
+                    raise ValueError(f"Missing required fields in monthly data for {month}")
+                    
+            for metric in ["revenue", "expenses", "cashflow"]:
+                if not all(k in json_response["statistics"][metric] for k in ["average", "std_deviation"]):
+                    raise ValueError(f"Missing required fields in statistics for {metric}")
+            
+            logger.info("✅ Successfully parsed and validated JSON response")
+            return json.dumps(json_response, indent=2)
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"❌ JSON parsing error: {str(e)}")
+            logger.error(f"Failed to parse response: {cleaned_response}")
+            return json.dumps({
+                "error": "Failed to parse financial analysis",
+                "details": f"Invalid JSON format in response: {str(e)}"
+            })
+        except ValueError as e:
+            logger.error(f"❌ Validation error: {str(e)}")
+            return json.dumps({
+                "error": "Failed to validate financial analysis",
+                "details": str(e)
+            })
+
+    except Exception as e:
+        logger.error(f"❌ Error in analyze_monthly_financials: {str(e)}")
+        logger.error(f"Full traceback:\n{traceback.format_exc()}")
+        return json.dumps({
+            "error": "Failed to analyze financials",
+            "details": str(e)
+        })
+
+@tool
+def extract_monthly_closing_balances(input_str: str = "None") -> str:
+    """Extract closing balances for each month from bank statements."""
+    try:
+        prompt = """You are a JSON-only response bot. Extract the closing balance for each month from the bank statements.
+
+        CRITICAL RULES FOR BALANCE TYPES:
+        1. "direct" balances:
+           - Use ONLY when the closing balance is explicitly stated in the statement
+           - Look for terms like "Ending Balance", "Closing Balance", "Statement End Balance"
+           - Must be the ACTUAL balance stated for the last day of the month
+           - These are directly from the bank statement
+           - Often found at the bottom of monthly statements
+        
+        2. "calculated" balances:
+           - Use ONLY when a direct closing balance is NOT available
+           - Calculation steps:
+             a. Start with the previous month's ending balance
+             b. Add all deposits/credits in chronological order by transaction date
+             c. Subtract all withdrawals/debits in chronological order by transaction date
+             d. Continue until the last transaction of the month
+             e. The final number is your calculated closing balance
+           - Must account for ALL transactions in chronological order
+           - Pay attention to transaction dates, not posting dates
+           - Double-check your math - amounts should match statement totals
+        
+        VERIFICATION STEPS:
+        1. For each month:
+           - First look for an explicit ending balance statement
+           - If not found, use the calculation method
+           - Cross-reference with next month's opening balance
+           - Verify all transactions are included
+        
+        2. Common places to find direct balances:
+           - Bottom of statement summary
+           - End of transaction list
+           - Next month's opening balance
+           - Daily balance summary sections
+        
+        Format your response as a JSON with this structure:
+        {
+            "monthly_closing_balances": [
+                {
+                    "month": "YYYY-MM",
+                    "closing_date": "YYYY-MM-DD",
+                    "balance": amount,
+                    "balance_type": "direct" or "calculated",
+                    "source": "Ending Balance statement" or "Calculated from transactions",
+                    "verification": "Matches next month opening balance" or "Calculated from all transactions"
+                }
+            ],
+            "analysis": {
+                "months_covered": number_of_months,
+                "direct_balances": number_of_direct,
+                "calculated_balances": number_of_calculated,
+                "verification_notes": ["Any discrepancies or important notes about the calculations"]
+            }
+        }
+        
+        IMPORTANT:
+        - List balances for ALL months in the statements
+        - Balance must be from the LAST DAY of each month
+        - All amounts must be numbers (not strings)
+        - Round all amounts to 2 decimal places
+        - Sort entries by month chronologically
+        - Clearly indicate if balance was direct or calculated
+        - Include detailed source information for audit purposes
+        - Add verification notes if calculated balance differs from next month's opening
+        
+        Include only the JSON in your response, no additional text."""
+
+        logger.info("🔄 Calling LLM for monthly closing balances")
+        response = _llm.get_response(prompt)
+        
+        logger.info("Raw response from LLM:")
+        logger.info("-" * 50)
+        logger.info(response)
+        logger.info("-" * 50)
+        
+        # Clean the response
+        cleaned_response = response.strip()
+        if "```json" in cleaned_response:
+            cleaned_response = cleaned_response.split("```json")[1]
+        if "```" in cleaned_response:
+            cleaned_response = cleaned_response.split("```")[0]
+        cleaned_response = cleaned_response.strip()
+        
+        logger.info("Cleaned response:")
+        logger.info("-" * 50)
+        logger.info(cleaned_response)
+        logger.info("-" * 50)
+        
+        # Validate JSON format
+        try:
+            json_response = json.loads(cleaned_response)
+            
+            # Validate required fields and structure
+            if "monthly_closing_balances" not in json_response or "analysis" not in json_response:
+                raise ValueError("Missing required top-level fields")
+            
+            # Validate each monthly balance entry
+            for entry in json_response["monthly_closing_balances"]:
+                required_fields = ["month", "closing_date", "balance", "balance_type", "source", "verification"]
+                if not all(k in entry for k in required_fields):
+                    raise ValueError(f"Missing required fields in entry for {entry.get('month', 'unknown month')}")
+                if entry["balance_type"] not in ["direct", "calculated"]:
+                    raise ValueError(f"Invalid balance_type for {entry['month']}")
+            
+            # Validate analysis section
+            required_analysis = ["months_covered", "direct_balances", "calculated_balances", "verification_notes"]
+            if not all(k in json_response["analysis"] for k in required_analysis):
+                raise ValueError("Missing required analysis fields")
+            
+            logger.info("✅ Successfully parsed and validated JSON response")
+            return json.dumps(json_response, indent=2)
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"❌ JSON parsing error: {str(e)}")
+            logger.error(f"Failed to parse response: {cleaned_response}")
+            return json.dumps({
+                "error": "Failed to parse closing balances",
+                "details": f"Invalid JSON format in response: {str(e)}"
+            })
+        except ValueError as e:
+            logger.error(f"❌ Validation error: {str(e)}")
+            return json.dumps({
+                "error": "Failed to validate closing balances",
+                "details": str(e)
+            })
+
+    except Exception as e:
+        logger.error(f"❌ Error in extract_monthly_closing_balances: {str(e)}")
+        logger.error(f"Full traceback:\n{traceback.format_exc()}")
+        return json.dumps({
+            "error": "Failed to extract closing balances",
+            "details": str(e)
+        }) 
