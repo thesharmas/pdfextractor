@@ -54,14 +54,14 @@ class Config:
         },
         LLMProvider.OPENAI: {
             ModelType.REASONING: {
-                "name": "o1-pro",
+                "name": "o3-mini",
                 "max_tokens": 4096,
-                "context_limit": 128000
+                "context_limit": 200000
             },
             ModelType.ANALYSIS: {
                 "name": "chatgpt-4o-latest",
                 "max_tokens": 4096,
-                "context_limit": 128000
+                "context_limit": 200000
             }
         }
     }

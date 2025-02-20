@@ -172,7 +172,66 @@ def underwrite():
         # Dynamic model mapping using enum values
         logger.info("\nBreakdown by Model:")
      
+        # Create a reasoning LLM for credit analysis
+        reasoning_llm = LLMFactory.create_llm(
+            provider=LLMProvider.OPENAI,
+            model_type=ModelType.REASONING
+        )
+        logger.info("Created reasoning LLM")
+        # Feed the analysis data
+        reasoning_llm.add_json(master_response)
+        logger.info("Added JSON to reasoning LLM")
+        # Craft the credit analysis prompt
+        credit_prompt = """
+        You are a conservative commercial loan underwriter. Analyze the provided financial data and determine if this business 
+        qualifies for a term loan with these parameters:
+        - Term: 12 months
+        - Payment Frequency: Monthly
+        - Annual Interest Rate: 19%
         
+        Focus on:
+        1. Cash flow adequacy for monthly payments
+        2. Bank statement analysis trends
+        3. NSF/overdraft risk indicators
+        4. Statement continuity and completeness
+        5. Overall financial health indicators
+        
+        Be conservative in your analysis. Consider:
+        - Minimum 1.25x monthly payment coverage from average daily balances
+        - Trending of balances (growing, stable, or declining)
+        - Impact of any NSFs on credit quality
+        - Seasonal patterns and lowest balance periods
+        
+        Provide your analysis and recommendation in this JSON format:
+        {
+            "loan_recommendation": {
+                "approval_decision": boolean,
+                "confidence_score": float (0-1),
+                "monthly_payment_amount": float,
+                "key_metrics": {
+                    "payment_coverage_ratio": float,
+                    "average_daily_balance_trend": "increasing|stable|decreasing",
+                    "lowest_monthly_balance": float,
+                    "highest_nsf_month_count": integer
+                },
+                "risk_factors": [string],
+                "mitigating_factors": [string],
+                "detailed_analysis": string,
+                "conditions_if_approved": [string]
+            }
+        }
+        """
+        logger.info("Sending credit prompt to reasoning LLM")
+        credit_analysis = reasoning_llm.get_response(credit_prompt)
+        
+        # Add the credit analysis to the master response
+        try:
+            credit_analysis_json = json.loads(credit_analysis)
+            master_response["credit_analysis"] = credit_analysis_json
+        except json.JSONDecodeError as e:
+            logger.error(f"Error parsing credit analysis JSON: {str(e)}")
+            master_response["credit_analysis"] = {"error": "Failed to parse credit analysis"}
+
         return jsonify(master_response)
 
     except Exception as e:
