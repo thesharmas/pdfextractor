@@ -40,11 +40,11 @@ class LLMWrapper:
         """Get response for a prompt, maintaining conversation history"""
         raise NotImplementedError
 
-class ClaudeWrapper(LLMWrapper):
+class AnthropicWrapper(LLMWrapper):
     def __init__(self):
         super().__init__()
         self.model = Anthropic(api_key=Config.ANTHROPIC_API_KEY)
-        logger.info("🤖 Initialized Claude wrapper")
+        logger.info("🤖 Initialized Anthropic wrapper")
 
     def add_pdf(self, file_path: str) -> None:
         try:
@@ -91,9 +91,9 @@ class ClaudeWrapper(LLMWrapper):
             })
             
             result = self.model.messages.create(
-                model=Config.CLAUDE_MODEL,
+                model=Config.ANTHROPIC_MODEL,
                 messages=self.messages,
-                max_tokens=Config.CLAUDE_MAX_TOKENS,
+                max_tokens=Config.ANTHROPIC_MAX_TOKENS,
                 temperature=Config.TEMPERATURE
             )
             
@@ -106,17 +106,17 @@ class ClaudeWrapper(LLMWrapper):
             return response_text
             
         except Exception as e:
-            logger.error(f"❌ Error from Claude: {str(e)}")
+            logger.error(f"❌ Error from Anthropic: {str(e)}")
             raise
 
-class GeminiWrapper(LLMWrapper):
+class GoogleWrapper(LLMWrapper):
     def __init__(self):
         super().__init__()
         genai.configure(api_key=Config.GOOGLE_API_KEY)
-        self.model = genai.GenerativeModel(Config.GEMINI_MODEL)
+        self.model = genai.GenerativeModel(Config.GOOGLE_MODEL)
         self.chat = self.model.start_chat()
-        self.rate_limiter = RATE_LIMITERS["gemini"]
-        logger.info(f"🤖 Initialized Gemini wrapper")
+        self.rate_limiter = RATE_LIMITERS["google"]
+        logger.info(f"🤖 Initialized Google wrapper")
 
     def add_pdf(self, file_path: str) -> None:
         try:
@@ -160,7 +160,7 @@ class GeminiWrapper(LLMWrapper):
             return response_text
             
         except Exception as e:
-            logger.error(f"❌ Error from Gemini: {str(e)}")
+            logger.error(f"❌ Error from Google: {str(e)}")
             raise
 
 class OpenAIWrapper(LLMWrapper):
@@ -236,10 +236,10 @@ class LLMFactory:
         
         logger.info(f"🏭 Creating new LLM instance for provider: {provider}")
         
-        if provider == LLMProvider.CLAUDE:
-            return ClaudeWrapper()
-        elif provider == LLMProvider.GEMINI:
-            return GeminiWrapper()
+        if provider == LLMProvider.ANTHROPIC:
+            return AnthropicWrapper()
+        elif provider == LLMProvider.GOOGLE:
+            return GoogleWrapper()
         elif provider == LLMProvider.OPENAI:
             return OpenAIWrapper()
         else:
