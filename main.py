@@ -13,7 +13,7 @@ from typing import List, Dict, Any, Tuple
 import logging
 from pydantic import BaseModel
 from app.services.content_service import ContentService
-from app.tools.analysis_tools import calculate_average_daily_balance, check_nsf, set_llm,check_statement_continuity,extract_daily_balances
+from app.tools.analysis_tools import  check_nsf, set_llm,check_statement_continuity,extract_daily_balances,extract_monthly_closing_balances
 from app.services.llm_factory import LLMFactory
 from app.config import Config, LLMProvider
 import json
@@ -76,12 +76,12 @@ def underwrite():
             logger.info(f"Using default provider from config: {Config.LLM_PROVIDER}")
             llm = LLMFactory.create_llm()
 
-        llm.set_tools([extract_daily_balances, check_nsf, check_statement_continuity])
+        llm.set_tools([extract_daily_balances, check_nsf, check_statement_continuity,extract_monthly_closing_balances])
 
         # Process PDFs once and store in the LLM
         merged_pdf_path = content_service.merge_pdfs(file_paths)
-        pdf_contents = content_service.prepare_file_content([merged_pdf_path])
-        llm.set_file_contents(pdf_contents)
+        #pdf_contents = content_service.prepare_file_content([merged_pdf_path])
+        llm.add_pdf(merged_pdf_path)
         set_llm(llm)
         
         # Ask which tools to use
@@ -90,11 +90,12 @@ def underwrite():
             - balance (for average daily balance)
             - nsf (for NSF fee analysis)
             - continuity (for statement continuity analysis)
-            
+            - closing_balances (for monthly closing balances)
             Example response:
             balance
             nsf
             continuity
+            closing_balances
             Do not explain or add any other text."""
         
         result_content = llm.get_response(prompt=orchestration_prompt)
@@ -156,6 +157,11 @@ def underwrite():
                 nsf_json = check_nsf("None")
                 master_response["metrics"]["nsf_information"] = json.loads(nsf_json)
                 completed_analyses.add('nsf')
+            elif 'closing_balances' in analysis and 'closing_balances' not in completed_analyses:
+                logger.info("Calling extract_monthly_closing_balances")
+                closing_balances_json = extract_monthly_closing_balances("None")
+                master_response["metrics"]["closing_balances"] = json.loads(closing_balances_json)
+                completed_analyses.add('closing_balances')
         
         # Add orchestration info
         master_response["orchestration"] = "\n".join(completed_analyses)
