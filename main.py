@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from app.services.content_service import ContentService
 from app.tools.analysis_tools import  check_nsf, set_llm,check_statement_continuity,extract_daily_balances,extract_monthly_closing_balances
 from app.services.llm_factory import LLMFactory
-from app.config import Config, LLMProvider
+from app.config import Config, LLMProvider, ModelType
 import json
 # Configure logging
 logging.basicConfig(
@@ -48,33 +48,36 @@ def underwrite():
     debug_mode = request.json.get('debug', False)
     file_paths = request.json.get('file_paths', [])
     provider = request.json.get('provider')
+    model_type = request.json.get('model_type')  # Can be 'reasoning' or 'analysis'
     
     logger.info(f"Debug mode: {debug_mode}")
     logger.info(f"File paths: {file_paths}")
     logger.info(f"Provider requested: {provider}")
     logger.info(f"Provider type: {type(provider)}")
+    logger.info(f"Model type: {model_type}")
     
     if not file_paths:
         logger.error("No file paths provided")
         return jsonify({"error": "No file paths provided"}), 400
 
     try:
-        # Create LLM with optional provider override
+        # Create LLM with optional provider and model type override
         if provider:
             try:
-                logger.info(f"Converting provider string '{provider}' to enum")
-                logger.info(f"Valid providers: {[p.value for p in LLMProvider]}")
                 provider = LLMProvider(provider)
-                logger.info(f"Provider converted to: {provider}")
-                llm = LLMFactory.create_llm(provider=provider)
+                model_type = ModelType(model_type) if model_type else None
+                llm = LLMFactory.create_llm(
+                    provider=provider,
+                    model_type=model_type
+                )
             except ValueError as e:
-                logger.error(f"Invalid provider error: {str(e)}")
+                logger.error(f"Invalid configuration error: {str(e)}")
                 return jsonify({
-                    "error": f"Invalid provider: {provider}. Valid options are: {[p.value for p in LLMProvider]}"
+                    "error": f"Invalid configuration. Valid providers: {[p.value for p in LLMProvider]}, "
+                            f"Valid model types: {[t.value for t in ModelType]}"
                 }), 400
         else:
-            logger.info(f"Using default provider from config: {Config.LLM_PROVIDER}")
-            llm = LLMFactory.create_llm()
+            llm = LLMFactory.create_llm()  # Will use DEFAULT_PROVIDER and DEFAULT_MODEL_TYPE (ANALYSIS)
 
         llm.set_tools([extract_daily_balances, check_nsf, check_statement_continuity,extract_monthly_closing_balances])
 

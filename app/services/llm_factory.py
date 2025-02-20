@@ -1,7 +1,7 @@
 import logging
 import base64
 from typing import Any, List, Dict
-from app.config import Config, LLMProvider
+from app.config import Config, LLMProvider, ModelType
 import json
 from anthropic import Anthropic
 import google.generativeai as genai
@@ -13,9 +13,11 @@ logger = logging.getLogger(__name__)
 
 class LLMWrapper:
     """Base wrapper class for LLMs with conversation memory"""
-    def __init__(self):
+    def __init__(self, model_type: ModelType = None):
         self.messages = []
         self.tools = []
+        self.model_type = model_type or Config.DEFAULT_MODEL_TYPE
+        logger.info(f"Initializing {self.__class__.__name__} with model type: {self.model_type.value}")
 
     def add_pdf(self, file_path: str) -> None:
         """Add PDF content to conversation history"""
@@ -41,10 +43,11 @@ class LLMWrapper:
         raise NotImplementedError
 
 class AnthropicWrapper(LLMWrapper):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, model_type: ModelType = None):
+        super().__init__(model_type)
         self.model = Anthropic(api_key=Config.ANTHROPIC_API_KEY)
-        logger.info("🤖 Initialized Anthropic wrapper")
+        self.model_config = Config.get_model_config(LLMProvider.ANTHROPIC, model_type)
+        logger.info(f"🤖 Initialized Anthropic wrapper with {self.model_config['name']}")
 
     def add_pdf(self, file_path: str) -> None:
         try:
@@ -91,9 +94,9 @@ class AnthropicWrapper(LLMWrapper):
             })
             
             result = self.model.messages.create(
-                model=Config.ANTHROPIC_MODEL,
+                model=self.model_config['name'],
                 messages=self.messages,
-                max_tokens=Config.ANTHROPIC_MAX_TOKENS,
+                max_tokens=self.model_config['max_tokens'],
                 temperature=Config.TEMPERATURE
             )
             
@@ -110,13 +113,14 @@ class AnthropicWrapper(LLMWrapper):
             raise
 
 class GoogleWrapper(LLMWrapper):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, model_type: ModelType = None):
+        super().__init__(model_type)
         genai.configure(api_key=Config.GOOGLE_API_KEY)
-        self.model = genai.GenerativeModel(Config.GOOGLE_MODEL)
+        self.model_config = Config.get_model_config(LLMProvider.GOOGLE, model_type)
+        self.model = genai.GenerativeModel(self.model_config['name'])
         self.chat = self.model.start_chat()
         self.rate_limiter = RATE_LIMITERS["google"]
-        logger.info(f"🤖 Initialized Google wrapper")
+        logger.info(f"🤖 Initialized Google wrapper with {self.model_config['name']}")
 
     def add_pdf(self, file_path: str) -> None:
         try:
@@ -164,12 +168,12 @@ class GoogleWrapper(LLMWrapper):
             raise
 
 class OpenAIWrapper(LLMWrapper):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, model_type: ModelType = None):
+        super().__init__(model_type)
         self.client = OpenAI(api_key=Config.OPENAI_API_KEY)
-        self.model = Config.OPENAI_MODEL
+        self.model_config = Config.get_model_config(LLMProvider.OPENAI, model_type)
         self.rate_limiter = RATE_LIMITERS["openai"]
-        logger.info(f"🤖 Initialized OpenAI wrapper")
+        logger.info(f"🤖 Initialized OpenAI wrapper with {self.model_config['name']}")
 
     def add_pdf(self, file_path: str) -> None:
         try:
@@ -210,9 +214,9 @@ class OpenAIWrapper(LLMWrapper):
             })
             
             response = self.client.chat.completions.create(
-                model=self.model,
+                model=self.model_config['name'],
                 messages=self.messages,
-                max_tokens=Config.OPENAI_MAX_TOKENS,
+                max_tokens=self.model_config['max_tokens'],
                 temperature=Config.TEMPERATURE
             )
             
@@ -225,22 +229,29 @@ class OpenAIWrapper(LLMWrapper):
             return response_text
             
         except Exception as e:
-            logger.error(f"❌ Error in OpenAI wrapper: {str(e)}")
+            logger.error(f"❌ Error from OpenAI: {str(e)}")
             raise
 
 class LLMFactory:
     @staticmethod
-    def create_llm(provider: LLMProvider = None) -> LLMWrapper:
-        """Factory method that produces wrapped LLM instances"""
-        provider = provider or Config.LLM_PROVIDER
+    def create_llm(
+        provider: LLMProvider = None,
+        model_type: ModelType = None
+    ) -> LLMWrapper:
+        """
+        Factory method that produces wrapped LLM instances
+        If model_type not specified, uses DEFAULT_MODEL_TYPE (ANALYSIS) from Config
+        """
+        provider = provider or Config.DEFAULT_PROVIDER
+        model_type = model_type or Config.DEFAULT_MODEL_TYPE
         
-        logger.info(f"🏭 Creating new LLM instance for provider: {provider}")
+        logger.info(f"🏭 Creating new LLM instance for provider: {provider} with model type: {model_type.value}")
         
         if provider == LLMProvider.ANTHROPIC:
-            return AnthropicWrapper()
+            return AnthropicWrapper(model_type)
         elif provider == LLMProvider.GOOGLE:
-            return GoogleWrapper()
+            return GoogleWrapper(model_type)
         elif provider == LLMProvider.OPENAI:
-            return OpenAIWrapper()
+            return OpenAIWrapper(model_type)
         else:
             raise ValueError(f"Unsupported LLM provider: {provider}")

@@ -9,28 +9,65 @@ class LLMProvider(Enum):
     GOOGLE = "google"
     OPENAI = "openai"
 
+class ModelType(Enum):
+    REASONING = "reasoning"
+    ANALYSIS = "analysis"
+
 class Config:
-    LLM_PROVIDER = LLMProvider(os.getenv('LLM_PROVIDER', 'anthropic'))
-    
-    # Model configurations
-    ANTHROPIC_MODEL = "claude-3-sonnet-20240229"
-    GOOGLE_MODEL = "gemini-pro"
-    OPENAI_MODEL = "gpt-4-turbo-preview"
+    # Default configurations
+    DEFAULT_PROVIDER = LLMProvider(os.getenv('LLM_PROVIDER', 'openai'))
+    DEFAULT_MODEL_TYPE = ModelType.ANALYSIS
     
     # API Keys
     ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
     GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
     OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
     
-    # Model parameters
+    # Temperature setting
     TEMPERATURE = 0.0
     
-    # Model max token limits (for responses)
-    ANTHROPIC_MAX_TOKENS = 4096     # Claude 3 Sonnet response limit
-    GOOGLE_MAX_TOKENS = 2048        # Gemini Pro response limit
-    OPENAI_MAX_TOKENS = 4096        # GPT-4 response limit
+    # Model configurations
+    MODEL_CONFIGS = {
+        LLMProvider.ANTHROPIC: {
+            ModelType.REASONING: {
+                "name": "claude-3-opus-20240229",
+                "max_tokens": 4096,
+                "context_limit": 200000
+            },
+            ModelType.ANALYSIS: {
+                "name": "claude-3-sonnet-20240229",
+                "max_tokens": 4096,
+                "context_limit": 200000
+            }
+        },
+        LLMProvider.GOOGLE: {
+            ModelType.REASONING: {
+                "name": "gemini-pro-advanced",
+                "max_tokens": 2048,
+                "context_limit": 32768
+            },
+            ModelType.ANALYSIS: {
+                "name": "gemini-pro",
+                "max_tokens": 2048,
+                "context_limit": 32768
+            }
+        },
+        LLMProvider.OPENAI: {
+            ModelType.REASONING: {
+                "name": "o1-pro",
+                "max_tokens": 4096,
+                "context_limit": 128000
+            },
+            ModelType.ANALYSIS: {
+                "name": "chatgpt-4o-latest",
+                "max_tokens": 4096,
+                "context_limit": 128000
+            }
+        }
+    }
 
-    # Model context limits (total tokens including prompt + response)
-    ANTHROPIC_CONTEXT_LIMIT = 200000  # Claude 3 Sonnet context limit
-    GOOGLE_CONTEXT_LIMIT = 32768      # Gemini Pro context limit
-    OPENAI_CONTEXT_LIMIT = 128000     # GPT-4 context limit 
+    @classmethod
+    def get_model_config(cls, provider: LLMProvider, model_type: ModelType = None):
+        """Get model configuration for given provider and type"""
+        model_type = model_type or cls.DEFAULT_MODEL_TYPE
+        return cls.MODEL_CONFIGS[provider][model_type] 
