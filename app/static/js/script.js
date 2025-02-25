@@ -5,7 +5,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const submitBtn = document.getElementById('submit-btn');
     const clearBtn = document.getElementById('clear-files');
     const resultsSection = document.getElementById('results-section');
-    const loadingIndicator = document.getElementById('loading-indicator');
+    const loadingContainer = document.querySelector('.loading-container');
+    const loadingText = document.getElementById('loading-text');
     const resultsContent = document.getElementById('results-content');
     const toggleBtn = document.getElementById('toggle-upload-btn');
     const uploadContent = document.getElementById('upload-content');
@@ -22,6 +23,11 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Selected files storage
     let selectedFiles = [];
+    
+    // Add status list to loading container
+    const statusList = document.createElement('div');
+    statusList.className = 'status-list';
+    loadingContainer.appendChild(statusList);
     
     // Handle file selection
     fileInput.addEventListener('change', function(e) {
@@ -111,27 +117,25 @@ document.addEventListener('DOMContentLoaded', function() {
     form.addEventListener('submit', async function(e) {
         e.preventDefault();
         
-        const submitBtn = document.getElementById('submit-btn');
-        const resultsSection = document.getElementById('results-section');
-        const loadingContainer = document.querySelector('.loading-container');
-        const resultsContent = document.getElementById('results-content');
-        
-        // Hide results section and clear previous results
+        // Clear previous results and status
         resultsSection.style.display = 'none';
         resultsSection.classList.remove('visible');
         resultsContent.innerHTML = '';
+        statusList.innerHTML = '';
         
-        // Show loading container and text
+        // Show loading container
         loadingContainer.style.display = 'flex';
         
         // Disable submit button
         submitBtn.disabled = true;
         
-        // Collapse upload section if expanded
-        const uploadContent = document.getElementById('upload-content');
-        if (!uploadContent.classList.contains('collapsed')) {
-            document.getElementById('toggle-upload-btn').click();
-        }
+        // Start listening for status updates
+        const eventSource = new EventSource('/status');
+        
+        eventSource.onmessage = function(event) {
+            const status = JSON.parse(event.data);
+            updateStatus(status);
+        };
         
         try {
             // First, upload the files
@@ -184,6 +188,8 @@ document.addEventListener('DOMContentLoaded', function() {
         } finally {
             // Re-enable submit button
             submitBtn.disabled = false;
+            // Close the event source
+            eventSource.close();
         }
     });
     
@@ -206,6 +212,20 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const result = await response.json();
         return result.file_paths;
+    }
+    
+    // Function to update status display
+    function updateStatus(status) {
+        const statusItem = document.createElement('div');
+        statusItem.className = `status-item ${status.status.toLowerCase()}`;
+        
+        statusItem.innerHTML = `
+            <span class="status-step">${status.step}</span>
+            <span class="status-message">${status.details || status.status}</span>
+        `;
+        
+        statusList.appendChild(statusItem);
+        statusList.scrollTop = statusList.scrollHeight;
     }
 });
 

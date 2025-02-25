@@ -262,8 +262,9 @@ input[type="file"] {
 
 .loading-container {
     display: none;
-    justify-content: center;
+    flex-direction: column;
     align-items: center;
+    justify-content: center;
     margin: 2rem 0;
 }
 
@@ -278,9 +279,9 @@ input[type="file"] {
 }
 
 .loading-text {
-    color: var(--text-primary);
     font-size: 1.1rem;
-    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
 }
 
 .loading-text::after {
@@ -1018,4 +1019,46 @@ input[type="file"] {
 
 .metric-content::-webkit-scrollbar-thumb:hover {
     background: #555;
+}
+
+.status-list {
+    width: 100%;
+    max-width: 600px;
+    max-height: 200px;
+    overflow-y: auto;
+    margin-top: 1rem;
+    background: var(--background);
+    border-radius: var(--radius-sm);
+    padding: 1rem;
+    border: 1px solid var(--border-color);
+}
+
+.status-item {
+    margin-bottom: 0.5rem;
+    padding: 0.5rem;
+    border-radius: var(--radius-sm);
+    background: rgba(0,0,0,0.05);
+    font-size: 0.9rem;
+}
+
+.status-item.processing {
+    border-left: 3px solid var(--primary-color);
+}
+
+.status-item.complete {
+    border-left: 3px solid var(--success-color);
+}
+
+.status-item.error {
+    border-left: 3px solid var(--danger-color);
+}
+
+.status-step {
+    font-weight: 500;
+    margin-right: 0.5rem;
+    color: var(--text-primary);
+}
+
+.status-message {
+    color: var(--text-secondary);
 } 

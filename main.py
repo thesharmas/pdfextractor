@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, Response, render_template, url_for, send_from_directory
+from flask import Flask, request, jsonify, Response, render_template, url_for, send_from_directory, stream_with_context
 import os
 from dotenv import load_dotenv
 import google.generativeai as genai
@@ -20,6 +20,8 @@ import json
 import uuid
 from werkzeug.utils import secure_filename
 import shutil
+from queue import Queue
+import time
 
 # Configure logging
 logging.basicConfig(
@@ -34,6 +36,9 @@ logger = logging.getLogger(__name__)
 
 # Add near the top of the file, after other imports
 content_service = ContentService()
+
+# Create a queue for status messages
+status_queue = Queue()
 
 def get_api_key():
     api_key = os.getenv('ANTHROPIC_API_KEY')
@@ -89,7 +94,7 @@ def upload_files():
 @app.route('/underwrite', methods=['POST'])
 def underwrite():
     logger.info("📥 Received underwrite request")
-    logger.info(f"Request JSON: {json.dumps(request.json, indent=2)}")
+    send_status("start", "Processing", "Received underwrite request")
     
     debug_mode = request.json.get('debug', False)
     file_paths = request.json.get('file_paths', [])
@@ -105,38 +110,40 @@ def underwrite():
         return jsonify({"error": "No file paths provided"}), 400
 
     try:
-        # Create LLM with optional provider and model type override
+        # Create LLM
+        send_status("llm_setup", "Processing", f"Initializing {provider} LLM")
         if provider:
             try:
-                # Convert provider string to lowercase to match enum values
                 provider_value = provider.lower()
                 provider = LLMProvider(provider_value)
-                
-                # Use default model type (ANALYSIS)
                 model_type = None
-                
                 analysis_llm = LLMFactory.create_llm(
                     provider=provider,
                     model_type=model_type
                 )
+                send_status("llm_setup", "Complete", f"Successfully initialized {provider} LLM")
             except ValueError as e:
+                send_status("llm_setup", "Error", str(e))
                 logger.error(f"Invalid configuration error: {str(e)}")
-                return jsonify({
-                    "error": f"Invalid configuration. Valid providers: {[p.value for p in LLMProvider]}, "
-                            f"Valid model types: {[t.value for t in ModelType]}"
-                }), 400
+                return jsonify({"error": f"Invalid configuration"}), 400
         else:
-            analysis_llm= LLMFactory.create_llm()  # Will use DEFAULT_PROVIDER and DEFAULT_MODEL_TYPE (ANALYSIS)
+            analysis_llm = LLMFactory.create_llm()
         
         set_llm(analysis_llm)
         analysis_llm.set_tools([extract_daily_balances, check_nsf, check_statement_continuity,extract_monthly_closing_balances,analyze_monthly_financials])
 
-        # Process PDFs once and store in the LLM
+        # Process PDFs
+        send_status("pdf_processing", "Processing", "Merging PDF files")
         merged_pdf_path = content_service.merge_pdfs(file_paths)
-        #pdf_contents = content_service.prepare_file_content([merged_pdf_path])
+        send_status("pdf_processing", "Complete", "PDFs merged successfully")
+
+        # Add PDF to LLM
+        send_status("pdf_analysis", "Processing", "Adding PDF to LLM for analysis")
         analysis_llm.add_pdf(merged_pdf_path)
+        send_status("pdf_analysis", "Complete", "PDF added to LLM")
         
-        # Ask which tools to use
+        # Orchestration
+        send_status("orchestration", "Processing", "Determining required analyses")
         orchestration_prompt = """Given the bank statements above, which of these analyses should I run? 
             Please respond with ONLY the analysis name, one per line:
             - balance (for average daily balance)
@@ -153,15 +160,14 @@ def underwrite():
             Do not explain or add any other text."""
         
         result_content = analysis_llm.get_response(prompt=orchestration_prompt)
-        logger.info("Orchestration response: %s", result_content)
-        
-        # Parse recommended analyses
         recommended_analyses = set(result_content.lower().split('\n'))
+        send_status("orchestration", "Complete", f"Recommended analyses: {', '.join(recommended_analyses)}")
         
         # First check statement continuity
-        logger.info("Checking statement continuity...")
+        send_status("continuity", "Processing", "Checking statement continuity")
         continuity_json = check_statement_continuity("None")
         continuity_data = json.loads(continuity_json)
+        send_status("continuity", "Complete", "Statement continuity check finished")
         
         is_contiguous = continuity_data.get("analysis", {}).get("is_contiguous", False)
         explanation = continuity_data.get("analysis", {}).get("explanation", "No explanation provided")
@@ -235,11 +241,10 @@ def underwrite():
         # Feed the master_response to the reasoning LLM
         reasoning_llm.add_json(master_response)
         
-        
-        
         # Now use the analyze_credit_decision tool
-        logger.info("🔄 Starting credit analysis")
+        send_status("credit_analysis", "Processing", "Performing final credit analysis")
         credit_analysis = analyze_credit_decision(json.dumps(master_response))
+        send_status("credit_analysis", "Complete", "Credit analysis finished")
         
         try:
             credit_analysis_json = json.loads(credit_analysis)
@@ -252,9 +257,12 @@ def underwrite():
                 "raw_response": credit_analysis
             }
 
+        # Final response
+        send_status("complete", "Success", "Analysis complete")
         return jsonify(master_response)
 
     except Exception as e:
+        send_status("error", "Error", str(e))
         logger.error(f"Error in underwrite: {str(e)}")
         logger.error(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
@@ -275,6 +283,30 @@ def clear_uploads():
     except Exception as e:
         logger.error(f"Error clearing uploads: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+# Add new route for SSE
+@app.route('/status')
+def status_stream():
+    def event_stream():
+        while True:
+            # Get message from queue
+            if not status_queue.empty():
+                message = status_queue.get()
+                yield f"data: {json.dumps(message)}\n\n"
+            time.sleep(0.5)  # Small delay to prevent CPU overuse
+    
+    return Response(stream_with_context(event_stream()), 
+                   mimetype='text/event-stream')
+
+# Helper function to send status updates
+def send_status(step: str, status: str, details: str = None):
+    status_message = {
+        "step": step,
+        "status": status,
+        "details": details,
+        "timestamp": time.time()
+    }
+    status_queue.put(status_message)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
