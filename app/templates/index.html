@@ -3,51 +3,120 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF Extractor</title>
+    <title>AI Credit Risk Underwriter Agent</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
     <div class="container">
-        <h1>PDF Extractor</h1>
+        <h1>AI Credit Risk Underwriter Agent</h1>
         <div class="upload-section">
-            <h2>Upload Bank Statements</h2>
-            <form id="upload-form">
-                <div class="file-input-container">
-                    <input type="file" id="pdf-files" name="pdf-files" multiple accept=".pdf">
-                    <label for="pdf-files" class="file-input-label">Choose PDF Files</label>
-                    <div id="file-names" class="file-names"></div>
-                </div>
-                
-                <div class="options-section">
-                    <h3>Options</h3>
-                    <div class="option-group">
-                        <label for="provider">LLM Provider:</label>
-                        <select id="provider" name="provider">
-                            <option value="anthropic">Anthropic</option>
-                            <option value="openai" selected>OpenAI</option>
-                            <option value="google">Google</option>
-                        </select>
+            <div class="section-header">
+                <h2>Upload Bank Statements</h2>
+                <button type="button" class="toggle-section-btn" id="toggle-upload-btn">
+                    <span class="toggle-icon">▼</span>
+                </button>
+            </div>
+            <div class="upload-content" id="upload-content">
+                <form id="upload-form">
+                    <div class="file-input-container">
+                        <input type="file" id="pdf-files" name="pdf-files" multiple accept=".pdf">
+                        <label for="pdf-files" class="file-input-label">Choose PDF Files</label>
+                        <button type="button" id="clear-files" class="clear-files-btn">Clear Files</button>
+                        <div id="file-names" class="file-names"></div>
                     </div>
                     
-                    <div class="option-group">
-                        <label for="debug-mode">
-                            <input type="checkbox" id="debug-mode" name="debug-mode">
-                            Debug Mode
-                        </label>
+                    <div class="options-section">
+                        <h3>Options</h3>
+                        <div class="option-group">
+                            <label for="provider">LLM Provider:</label>
+                            <select id="provider" name="provider">
+                                <option value="anthropic">Anthropic</option>
+                                <option value="openai" selected>OpenAI</option>
+                                <option value="google">Google</option>
+                            </select>
+                        </div>
+                        
+                        <div class="option-group">
+                            <label for="debug-mode">
+                                <input type="checkbox" id="debug-mode" name="debug-mode">
+                                Debug Mode
+                            </label>
+                        </div>
                     </div>
-                </div>
-                
-                <button type="submit" id="submit-btn" class="submit-btn">Process PDFs</button>
-            </form>
+                    
+                    <button type="submit" id="submit-btn" class="submit-btn">Underwrite</button>
+                </form>
+            </div>
+        </div>
+        
+        <div class="loading-container">
+            <div id="loading-text" class="loading-text">Underwriting with AI Agent</div>
         </div>
         
         <div class="results-section" id="results-section" style="display: none;">
             <h2>Analysis Results</h2>
-            <div class="loading" id="loading-indicator">
-                <div class="spinner"></div>
-                <p>Processing your PDFs. This may take a minute...</p>
+            <div class="results-tabs">
+                <button class="tab-btn active" data-tab="summary">Summary</button>
+                <button class="tab-btn" data-tab="financials">Financial Analysis</button>
+                <button class="tab-btn" data-tab="credit">Credit Decision</button>
+                <button class="tab-btn" data-tab="raw">Raw JSON</button>
             </div>
-            <div id="results-content"></div>
+            <div class="tab-content">
+                <div id="summary-tab" class="tab-pane active">
+                    <div class="summary-cards">
+                        <div class="summary-card">
+                            <h3>Statement Overview</h3>
+                            <div class="statement-continuity"></div>
+                        </div>
+                        <div class="summary-card">
+                            <h3>Key Metrics</h3>
+                            <div class="key-metrics"></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="financials-tab" class="tab-pane">
+                    <div class="financial-cards">
+                        <div class="chart-card">
+                            <h3>Daily Balances</h3>
+                            <div class="daily-balance-chart"></div>
+                        </div>
+                        <div class="metrics-grid">
+                            <div class="metric-card">
+                                <h4>Monthly Data</h4>
+                                <div class="monthly-data metric-content"></div>
+                            </div>
+                            <div class="metric-card">
+                                <h4>Financial Statistics</h4>
+                                <div class="avg-balance metric-content"></div>
+                            </div>
+                            <div class="metric-card">
+                                <h4>NSF Activity</h4>
+                                <div class="nsf-info metric-content"></div>
+                            </div>
+                            <div class="metric-card">
+                                <h4>Monthly Closing</h4>
+                                <div class="closing-balance metric-content"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="credit-tab" class="tab-pane">
+                    <div class="credit-analysis-card">
+                        <div class="decision-header"></div>
+                        <div class="risk-factors">
+                            <div class="positive-factors"></div>
+                            <div class="negative-factors"></div>
+                        </div>
+                        <div class="recommendations"></div>
+                    </div>
+                </div>
+                <div id="raw-tab" class="tab-pane">
+                    <div id="results-content"></div>
+                </div>
+            </div>
         </div>
     </div>
     

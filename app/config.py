@@ -30,24 +30,24 @@ class Config:
     MODEL_CONFIGS = {
         LLMProvider.ANTHROPIC: {
             ModelType.REASONING: {
-                "name": "claude-3-opus-20240229",
+                "name": "claude-3-7-sonnet-20250219",
                 "max_tokens": 4096,
                 "context_limit": 200000
             },
             ModelType.ANALYSIS: {
-                "name": "claude-3-sonnet-20240229",
+                "name": "claude-3-5-haiku-20241022",
                 "max_tokens": 4096,
                 "context_limit": 200000
             }
         },
         LLMProvider.GOOGLE: {
             ModelType.REASONING: {
-                "name": "gemini-pro-advanced",
+                "name": "gemini-1.5-pro",
                 "max_tokens": 2048,
                 "context_limit": 32768
             },
             ModelType.ANALYSIS: {
-                "name": "gemini-pro",
+                "name": "gemini-1.5-flash",
                 "max_tokens": 2048,
                 "context_limit": 32768
             }

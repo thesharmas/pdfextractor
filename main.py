@@ -19,6 +19,7 @@ from app.config import Config, LLMProvider, ModelType
 import json
 import uuid
 from werkzeug.utils import secure_filename
+import shutil
 
 # Configure logging
 logging.basicConfig(
@@ -256,6 +257,23 @@ def underwrite():
     except Exception as e:
         logger.error(f"Error in underwrite: {str(e)}")
         logger.error(traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/clear-uploads', methods=['POST'])
+def clear_uploads():
+    try:
+        # Clear the uploads directory
+        for filename in os.listdir(app.config['UPLOAD_FOLDER']):
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            try:
+                if os.path.isfile(file_path):
+                    os.unlink(file_path)
+            except Exception as e:
+                logger.error(f"Error deleting {file_path}: {str(e)}")
+        
+        return jsonify({"message": "Uploads cleared successfully"}), 200
+    except Exception as e:
+        logger.error(f"Error clearing uploads: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':

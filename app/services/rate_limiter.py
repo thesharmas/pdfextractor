@@ -69,7 +69,7 @@ RATE_LIMITERS = {
         tokens_per_minute=80000,
         min_request_interval=0.5
     )),
-    "gemini": RateLimiter(RateLimitConfig(
+    "google": RateLimiter(RateLimitConfig(
         requests_per_minute=60,
         tokens_per_minute=60000,
         min_request_interval=0.1
