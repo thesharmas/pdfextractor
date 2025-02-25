@@ -111,9 +111,9 @@ def main():
         "./1.pdf",
         "./2.pdf",
         "./3.pdf",
+        "./6.pdf",
         "./4.pdf",
-        "./5.pdf",
-        "./6.pdf"
+        "./5.pdf"
     ]
     
     # Verify files exist

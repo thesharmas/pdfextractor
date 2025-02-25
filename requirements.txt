@@ -8,3 +8,5 @@ langchain-openai
 openai
 PyPDF2
 requests
+werkzeug
+uuid

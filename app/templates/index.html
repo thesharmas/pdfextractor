@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Extractor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>PDF Extractor</h1>
+        <div class="upload-section">
+            <h2>Upload Bank Statements</h2>
+            <form id="upload-form">
+                <div class="file-input-container">
+                    <input type="file" id="pdf-files" name="pdf-files" multiple accept=".pdf">
+                    <label for="pdf-files" class="file-input-label">Choose PDF Files</label>
+                    <div id="file-names" class="file-names"></div>
+                </div>
+                
+                <div class="options-section">
+                    <h3>Options</h3>
+                    <div class="option-group">
+                        <label for="provider">LLM Provider:</label>
+                        <select id="provider" name="provider">
+                            <option value="anthropic">Anthropic</option>
+                            <option value="openai" selected>OpenAI</option>
+                            <option value="google">Google</option>
+                        </select>
+                    </div>
+                    
+                    <div class="option-group">
+                        <label for="debug-mode">
+                            <input type="checkbox" id="debug-mode" name="debug-mode">
+                            Debug Mode
+                        </label>
+                    </div>
+                </div>
+                
+                <button type="submit" id="submit-btn" class="submit-btn">Process PDFs</button>
+            </form>
+        </div>
+        
+        <div class="results-section" id="results-section" style="display: none;">
+            <h2>Analysis Results</h2>
+            <div class="loading" id="loading-indicator">
+                <div class="spinner"></div>
+                <p>Processing your PDFs. This may take a minute...</p>
+            </div>
+            <div id="results-content"></div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html> 

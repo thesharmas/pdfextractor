@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, Response
+from flask import Flask, request, jsonify, Response, render_template, url_for, send_from_directory
 import os
 from dotenv import load_dotenv
 import google.generativeai as genai
@@ -17,6 +17,9 @@ from app.tools.analysis_tools import  check_nsf, set_llm,check_statement_continu
 from app.services.llm_factory import LLMFactory
 from app.config import Config, LLMProvider, ModelType
 import json
+import uuid
+from werkzeug.utils import secure_filename
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,  
@@ -38,7 +41,49 @@ def get_gemini_api_key():
     api_key = os.getenv('GOOGLE_API_KEY')
     return api_key
 
-app = Flask(__name__)
+# Create upload directory if it doesn't exist
+UPLOAD_FOLDER = 'uploads'
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+app = Flask(__name__, 
+    static_folder='app/static',
+    template_folder='app/templates'
+)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max upload size
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/upload', methods=['POST'])
+def upload_files():
+    if 'files' not in request.files:
+        return jsonify({"error": "No files part in the request"}), 400
+    
+    files = request.files.getlist('files')
+    
+    if not files or files[0].filename == '':
+        return jsonify({"error": "No files selected"}), 400
+    
+    file_paths = []
+    
+    for file in files:
+        if file and file.filename.endswith('.pdf'):
+            # Create a unique filename to avoid collisions
+            filename = secure_filename(file.filename)
+            unique_filename = f"{uuid.uuid4()}_{filename}"
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+            
+            # Save the file
+            file.save(file_path)
+            file_paths.append(file_path)
+    
+    if not file_paths:
+        return jsonify({"error": "No valid PDF files uploaded"}), 400
+    
+    return jsonify({"file_paths": file_paths})
 
 @app.route('/underwrite', methods=['POST'])
 def underwrite():
@@ -48,13 +93,11 @@ def underwrite():
     debug_mode = request.json.get('debug', False)
     file_paths = request.json.get('file_paths', [])
     provider = request.json.get('provider')
-    model_type = request.json.get('model_type')  # Can be 'reasoning' or 'analysis'
     
     logger.info(f"Debug mode: {debug_mode}")
     logger.info(f"File paths: {file_paths}")
     logger.info(f"Provider requested: {provider}")
     logger.info(f"Provider type: {type(provider)}")
-    logger.info(f"Model type: {model_type}")
     
     if not file_paths:
         logger.error("No file paths provided")
@@ -64,8 +107,13 @@ def underwrite():
         # Create LLM with optional provider and model type override
         if provider:
             try:
-                provider = LLMProvider(provider)
-                model_type = ModelType(model_type) if model_type else None
+                # Convert provider string to lowercase to match enum values
+                provider_value = provider.lower()
+                provider = LLMProvider(provider_value)
+                
+                # Use default model type (ANALYSIS)
+                model_type = None
+                
                 analysis_llm = LLMFactory.create_llm(
                     provider=provider,
                     model_type=model_type
