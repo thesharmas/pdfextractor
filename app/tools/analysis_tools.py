@@ -580,4 +580,189 @@ def extract_monthly_closing_balances(input_str: str = "None") -> str:
         return json.dumps({
             "error": "Failed to extract closing balances",
             "details": str(e)
+        })
+
+@tool
+def analyze_credit_decision(input_str: str) -> str:
+    """Analyzes financial data to make a credit decision for a term loan. Returns JSON response."""
+    try:
+        prompt = """You are a **conservative commercial loan underwriter** analyzing detailed financial and bank statement data to decide whether a business qualifies for a term loan. Your objective is to produce a final JSON output **only**, following the exact structure below (no extra text or commentary). 
+
+### 1. Loan Parameters to Evaluate
+- **Term**: 12 months
+- **Payment Frequency**: Monthly
+- **Annual Interest Rate**: 19% (assume a standard amortized calculation unless specified otherwise)
+
+### 2. Analysis Scope & Priorities
+You must analyze the following aspects of the business's financial health:
+
+1. **Cash Flow Adequacy for Monthly Payments**  
+   - Ensure the business can handle the proposed monthly payment without jeopardizing operations.
+   - Check that average daily balances, average monthly inflows, and net cash flow trends are sufficient to cover the new payment(s).
+
+2. **Existing Cash Balances (Liquidity Reserves)**  
+   - Evaluate the business’s **current and historical** cash balances as a potential safety net for repayment.  
+   - Consider whether consistently high balances can offset narrower monthly net cash flows.  
+   - Be explicit if the historical average or month-end balances provide a comfortable buffer to cover short-term repayment obligations.
+
+3. **Bank Statement Analysis & Trends**  
+   - Evaluate daily balances for spikes or dips, and identify any patterns (e.g., seasonal fluctuations).
+   - Determine whether balances are increasing, stable, or declining over time.
+
+4. **NSF/Overdraft Risk Indicators**  
+   - Identify the presence and frequency of Non-Sufficient Funds (NSF) or overdrafts.
+   - Incorporate these findings into the risk assessment.
+
+5. **Statement Continuity & Completeness**  
+   - Confirm that the provided statements cover consecutive months without missing data.
+   - Missing statements or gaps could indicate data omissions or irregularities.
+
+6. **Overall Financial Health Indicators**  
+   - Examine monthly revenue vs. expenses to see if the business consistently generates positive net cash flow.
+   - Look at variance or standard deviation in revenue and expenses to gauge consistency.
+   - Identify whether negative cash flow months are occasional or frequent.
+
+7. **Post-Loan Cash Flow Adequacy**  
+   - Project if the business can still cover its normal operating expenses **after** introducing the new monthly payment.
+   - A recommended benchmark is a **minimum 2× monthly payment coverage** from net cash flow **or** from a combination of net cash flow plus adequate existing balances.
+
+### 3. Calculation & Decision Guidelines
+
+1. **Coverage Ratio Requirement**  
+   - Apply a conservative coverage ratio: business net cash flow / monthly payment should be at least **1.2** (1.2x coverage).  
+   - **However**, if net cash flow alone doesn’t meet the threshold, but the business has **consistently high cash balances** that can serve as a buffer, incorporate these balances to help fulfill the coverage requirement.  
+   - You may, for example, treat a certain fraction of the average daily or month-end balance as “coverage” if the business has historically maintained that minimum.
+
+2. **Existing Cash Reserves Assessment**  
+   - If monthly net cash flow is low, but average daily balances over the last X months are consistently well above the monthly payment, note that as a mitigating factor.  
+   - Factor in how many months of loan payments could be covered solely by existing balances, in case of revenue shortfalls.
+
+3. **Average Daily Balance Trend**  
+   - Categorize as `"increasing"`, `"stable"`, or `"decreasing"`.  
+   - Even one or two large deposits might not offset a generally declining trend. Use your best judgment.
+
+4. **NSF Handling**  
+   - If NSFs or overdrafts exist, incorporate them into risk factors.  
+   - Consider their frequency and recency.
+
+5. **Seasonal Patterns**  
+   - Identify if certain months are typically lower in revenue or have higher expenses.  
+   - This can affect the recommended maximum loan amount, even if the business has large reserves.
+
+6. **Deriving Maximum Loan & Payment**  
+   - **Compute a feasible monthly payment** that meets or exceeds your coverage ratio requirement.  
+   - If net cash flow + partial draw on existing balances is still insufficient, reduce the monthly payment.  
+   - **Back-calculate** the maximum principal (loan amount) using the 19% annual rate over 12 months.  
+   - If the business cannot meet coverage requirements, even considering the balances, recommend a denial or a more conservative loan structure.
+
+7. **Confidence Score**  
+   - Provide a numeric score between 0.0 and 1.0 reflecting how confident you are in the approval decision, based on data completeness, financial stability, and available cash reserves.
+
+8. **Approval Decision**  
+   - `true` or `false`, reflecting whether you would approve the loan under conservative guidelines.
+
+9. **Risk Factors & Mitigating Factors**  
+   - List the major risks (e.g., inconsistent monthly cash flow, any NSFs, large expense spikes).  
+   - List any mitigating factors (e.g., stable deposit patterns, strong existing balances, no NSFs).
+
+10. **Conditions if Approved**  
+   - Any special stipulations (e.g., maintain certain balance, provide updated statements, or ensure no new NSF incidents).
+
+### 4. Format Requirements
+
+**You must ONLY return a valid JSON object** with **no additional text** before or after. The structure must match **exactly**:
+
+
+### **4. Format Requirements**
+
+**You must ONLY return a valid JSON object** with **no additional text** before or after. The structure must match **exactly**:
+        
+        You must ONLY return a valid JSON object in this exact format, with no additional text:
+        {
+            "loan_recommendation": {
+                "approval_decision": boolean,
+                "confidence_score": float,
+                "max_monthly_payment_amount": float,
+                "max_loan_amount": float,
+                "key_metrics": {
+                    "payment_coverage_ratio": float,
+                    "average_daily_balance_trend": "increasing|stable|decreasing",
+                    "lowest_monthly_balance": float,
+                    "highest_nsf_month_count": integer
+                },
+                "risk_factors": ["factor1", "factor2"],
+                "mitigating_factors": ["factor1", "factor2"],
+                "detailed_analysis": "string",
+                "conditions_if_approved": ["condition1", "condition2"]
+            }
+        }"""
+
+        logger.info("🔄 Calling LLM for credit analysis")
+        response = _llm.get_response(prompt)
+        
+        logger.debug(f"🤖 Raw credit analysis response (length: {len(response)})")
+        logger.debug(f"🤖 First 20 chars: {repr(response[:20])}")
+        logger.debug(f"🤖 Last 20 chars: {repr(response[-20:])}")
+        
+        # Clean the response
+        cleaned_response = response.strip()
+        if "```json" in cleaned_response:
+            cleaned_response = cleaned_response.split("```json")[1]
+        if "```" in cleaned_response:
+            cleaned_response = cleaned_response.split("```")[0]
+        cleaned_response = cleaned_response.strip()
+        
+        logger.debug("Cleaned response:")
+        logger.debug("-" * 50)
+        logger.debug(cleaned_response)
+        logger.debug("-" * 50)
+        
+        # Validate JSON format
+        try:
+            json_response = json.loads(cleaned_response)
+            
+            # Validate required fields
+            if "loan_recommendation" not in json_response:
+                raise ValueError("Missing loan_recommendation object")
+                
+            required_fields = [
+                "approval_decision", 
+                "confidence_score", 
+                "max_monthly_payment_amount",
+                "max_loan_amount",
+                "key_metrics",
+                "risk_factors",
+                "mitigating_factors",
+                "detailed_analysis",
+                "conditions_if_approved"
+            ]
+            
+            for field in required_fields:
+                if field not in json_response["loan_recommendation"]:
+                    raise ValueError(f"Missing required field: {field}")
+            
+            logger.info("✅ Successfully parsed and validated credit analysis JSON")
+            return json.dumps(json_response, indent=2)
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"❌ JSON parsing error: {str(e)}")
+            logger.error(f"Failed to parse response: {cleaned_response}")
+            return json.dumps({
+                "error": "Failed to parse credit analysis",
+                "details": f"Invalid JSON format: {str(e)}"
+            })
+            
+        except ValueError as e:
+            logger.error(f"❌ Validation error: {str(e)}")
+            return json.dumps({
+                "error": "Failed to validate credit analysis",
+                "details": str(e)
+            })
+
+    except Exception as e:
+        logger.error(f"❌ Error in analyze_credit_decision: {str(e)}")
+        logger.error(f"Full traceback:\n{traceback.format_exc()}")
+        return json.dumps({
+            "error": "Failed to analyze credit decision",
+            "details": str(e)
         }) 

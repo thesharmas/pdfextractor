@@ -13,7 +13,7 @@ from typing import List, Dict, Any, Tuple
 import logging
 from pydantic import BaseModel
 from app.services.content_service import ContentService
-from app.tools.analysis_tools import  check_nsf, set_llm,check_statement_continuity,extract_daily_balances,extract_monthly_closing_balances
+from app.tools.analysis_tools import  check_nsf, set_llm,check_statement_continuity,extract_daily_balances,extract_monthly_closing_balances,analyze_credit_decision,analyze_monthly_financials
 from app.services.llm_factory import LLMFactory
 from app.config import Config, LLMProvider, ModelType
 import json
@@ -66,7 +66,7 @@ def underwrite():
             try:
                 provider = LLMProvider(provider)
                 model_type = ModelType(model_type) if model_type else None
-                llm = LLMFactory.create_llm(
+                analysis_llm = LLMFactory.create_llm(
                     provider=provider,
                     model_type=model_type
                 )
@@ -77,15 +77,15 @@ def underwrite():
                             f"Valid model types: {[t.value for t in ModelType]}"
                 }), 400
         else:
-            llm = LLMFactory.create_llm()  # Will use DEFAULT_PROVIDER and DEFAULT_MODEL_TYPE (ANALYSIS)
-
-        llm.set_tools([extract_daily_balances, check_nsf, check_statement_continuity,extract_monthly_closing_balances])
+            analysis_llm= LLMFactory.create_llm()  # Will use DEFAULT_PROVIDER and DEFAULT_MODEL_TYPE (ANALYSIS)
+        
+        set_llm(analysis_llm)
+        analysis_llm.set_tools([extract_daily_balances, check_nsf, check_statement_continuity,extract_monthly_closing_balances,analyze_monthly_financials])
 
         # Process PDFs once and store in the LLM
         merged_pdf_path = content_service.merge_pdfs(file_paths)
         #pdf_contents = content_service.prepare_file_content([merged_pdf_path])
-        llm.add_pdf(merged_pdf_path)
-        set_llm(llm)
+        analysis_llm.add_pdf(merged_pdf_path)
         
         # Ask which tools to use
         orchestration_prompt = """Given the bank statements above, which of these analyses should I run? 
@@ -94,14 +94,16 @@ def underwrite():
             - nsf (for NSF fee analysis)
             - continuity (for statement continuity analysis)
             - closing_balances (for monthly closing balances)
+            - analyze_monthly_financials (for monthly financials analysis)
             Example response:
             balance
             nsf
             continuity
             closing_balances
+            analyze_monthly_financials
             Do not explain or add any other text."""
         
-        result_content = llm.get_response(prompt=orchestration_prompt)
+        result_content = analysis_llm.get_response(prompt=orchestration_prompt)
         logger.info("Orchestration response: %s", result_content)
         
         # Parse recommended analyses
@@ -165,72 +167,41 @@ def underwrite():
                 closing_balances_json = extract_monthly_closing_balances("None")
                 master_response["metrics"]["closing_balances"] = json.loads(closing_balances_json)
                 completed_analyses.add('closing_balances')
+            elif 'analyze_monthly_financials' in analysis and 'analyze_monthly_financials' not in completed_analyses:
+                logger.info("Calling analyze_monthly_financials")
+                monthly_financials_json = analyze_monthly_financials("None")
+                master_response["metrics"]["monthly_financials"] = json.loads(monthly_financials_json)
+                completed_analyses.add('monthly_financials')
         
         # Add orchestration info
         master_response["orchestration"] = "\n".join(completed_analyses)
         
-        # Dynamic model mapping using enum values
-        logger.info("\nBreakdown by Model:")
-     
-        # Create a reasoning LLM for credit analysis
+        # Now switch to REASONING LLM for credit analysis
+        logger.info("🔄 Switching to REASONING LLM for credit analysis")
         reasoning_llm = LLMFactory.create_llm(
             provider=LLMProvider.OPENAI,
             model_type=ModelType.REASONING
         )
-        logger.info("Created reasoning LLM")
-        # Feed the analysis data
+        set_llm(reasoning_llm)
+        # Feed the master_response to the reasoning LLM
         reasoning_llm.add_json(master_response)
-        logger.info("Added JSON to reasoning LLM")
-        # Craft the credit analysis prompt
-        credit_prompt = """
-        You are a conservative commercial loan underwriter. Analyze the provided financial data and determine if this business 
-        qualifies for a term loan with these parameters:
-        - Term: 12 months
-        - Payment Frequency: Monthly
-        - Annual Interest Rate: 19%
         
-        Focus on:
-        1. Cash flow adequacy for monthly payments
-        2. Bank statement analysis trends
-        3. NSF/overdraft risk indicators
-        4. Statement continuity and completeness
-        5. Overall financial health indicators
         
-        Be conservative in your analysis. Consider:
-        - Minimum 1.25x monthly payment coverage from average daily balances
-        - Trending of balances (growing, stable, or declining)
-        - Impact of any NSFs on credit quality
-        - Seasonal patterns and lowest balance periods
         
-        Provide your analysis and recommendation in this JSON format:
-        {
-            "loan_recommendation": {
-                "approval_decision": boolean,
-                "confidence_score": float (0-1),
-                "monthly_payment_amount": float,
-                "key_metrics": {
-                    "payment_coverage_ratio": float,
-                    "average_daily_balance_trend": "increasing|stable|decreasing",
-                    "lowest_monthly_balance": float,
-                    "highest_nsf_month_count": integer
-                },
-                "risk_factors": [string],
-                "mitigating_factors": [string],
-                "detailed_analysis": string,
-                "conditions_if_approved": [string]
-            }
-        }
-        """
-        logger.info("Sending credit prompt to reasoning LLM")
-        credit_analysis = reasoning_llm.get_response(credit_prompt)
+        # Now use the analyze_credit_decision tool
+        logger.info("🔄 Starting credit analysis")
+        credit_analysis = analyze_credit_decision(json.dumps(master_response))
         
-        # Add the credit analysis to the master response
         try:
             credit_analysis_json = json.loads(credit_analysis)
             master_response["credit_analysis"] = credit_analysis_json
+            logger.info("✅ Credit analysis completed and added to master response")
         except json.JSONDecodeError as e:
-            logger.error(f"Error parsing credit analysis JSON: {str(e)}")
-            master_response["credit_analysis"] = {"error": "Failed to parse credit analysis"}
+            logger.error(f"❌ Error parsing credit analysis result: {str(e)}")
+            master_response["credit_analysis"] = {
+                "error": "Failed to parse credit analysis",
+                "raw_response": credit_analysis
+            }
 
         return jsonify(master_response)
 

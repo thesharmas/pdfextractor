@@ -216,8 +216,7 @@ class OpenAIWrapper(LLMWrapper):
             response = self.client.chat.completions.create(
                 model=self.model_config['name'],
                 messages=self.messages,
-                max_tokens=self.model_config['max_tokens'],
-                temperature=Config.TEMPERATURE
+                max_completion_tokens=self.model_config['max_tokens'],
             )
             
             response_text = response.choices[0].message.content
