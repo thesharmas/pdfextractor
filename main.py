@@ -224,9 +224,10 @@ def underwrite():
             set_llm(reasoning_llm)
             reasoning_llm.add_json(master_response)
             send_status("credit_analysis", "Processing", "Performing final credit analysis")
-            credit_analysis = analyze_credit_decision_term_loan(json.dumps(master_response))
-            credit_analysis_json = json.loads(credit_analysis)
-            master_response["credit_analysis"] = credit_analysis_json
+            
+            credit_analysis = analyze_credit_decision_term_loan("None")
+            # The credit_analysis already contains a "credit_analysis" key, so we should merge it
+            master_response.update(credit_analysis)
             send_status("credit_analysis", "Complete", "Credit analysis complete")
             
         except Exception as e:
@@ -238,6 +239,7 @@ def underwrite():
             }
         
         send_status("complete", "Success", "All analyses complete")
+        logger.info(f"Master response: {master_response}")
         return jsonify(master_response)
 
     except Exception as e:

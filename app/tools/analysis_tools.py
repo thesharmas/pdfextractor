@@ -583,7 +583,7 @@ def extract_monthly_closing_balances(input_str: str = "None") -> str:
         })
 
 @tool
-def analyze_credit_decision_term_loan(metrics_data, debug=False):
+def analyze_credit_decision_term_loan(debug=False):
     """Analyzes financial data to make a credit decision for a term loan. Returns JSON response."""
     try:
         prompt = """You are a **conservative commercial loan underwriter** analyzing detailed financial and bank statement data to decide whether a business qualifies for a term loan. Your objective is to produce a final JSON output **only**, following the exact structure below (no extra text or commentary). 
@@ -638,10 +638,10 @@ You must analyze the following aspects of the business's financial health:
 1. **Coverage Ratio Requirement**  
    - Apply a conservative coverage ratio: business net cash flow / monthly payment should be at least **1.2** (1.2x coverage).  
    - **However**, if net cash flow alone doesn't meet the threshold, but the business has **consistently high cash balances** that can serve as a buffer, incorporate these balances to help fulfill the coverage requirement.  
-   - You may, for example, treat a certain fraction of the average daily or month-end balance as "coverage" if the business has historically maintained that minimum.
+   - You may, for example, treat 20 percent of the month-end balance as addition to business net cash flow if the business has historically maintained that minimum.
 
 2. **Existing Cash Reserves Assessment**  
-   - If monthly net cash flow is low, but average daily balances over the last X months are consistently well above the monthly payment, note that as a mitigating factor.  
+   - If monthly net cash flow is low or negative, but average daily balances over the data period are consistently well above the monthly payment, note that as a mitigating factor.  
    - Factor in how many months of loan payments could be covered solely by existing balances, in case of revenue shortfalls.
 
 3. **Average Daily Balance Trend**  
@@ -675,6 +675,8 @@ You must analyze the following aspects of the business's financial health:
 10. **Conditions if Approved**  
     - Any special stipulations (e.g., maintain certain balance, provide updated statements, or ensure no new NSF incidents).
 
+11. **Detailed Analysis**  
+    - Provide a summary analysis of the business's financial health, including the key metrics and any mitigating or risk factors. Also mention in this section if you got the source data passed to you or not. this is to check if the data was actually fed to you or not.
 Return ONLY a valid JSON object in this exact format, with no additional text:
 {
     "loan_recommendation": {
@@ -698,9 +700,15 @@ Return ONLY a valid JSON object in this exact format, with no additional text:
         logger.info("🔄 Calling LLM for credit analysis")
         response = _llm.get_response(prompt)
         
-        # Add graceful handling for empty LLM response
-        if not response or not response.strip():
-            logger.warning("Received empty response from LLM, returning default analysis")
+        # Log the raw response for debugging
+        logger.info("Raw LLM response:")
+        logger.info("-" * 50)
+        logger.info(response)
+        logger.info("-" * 50)
+
+        # First check if response is empty or None
+        if not response:
+            logger.warning("Received empty response from LLM")
             return {
                 "credit_analysis": {
                     "loan_recommendation": {
@@ -711,95 +719,71 @@ Return ONLY a valid JSON object in this exact format, with no additional text:
                         "detailed_analysis": "Unable to generate analysis at this time. Please try again.",
                         "mitigating_factors": [],
                         "risk_factors": ["Analysis temporarily unavailable"],
-                        "conditions_if_approved": []
+                        "conditions_if_approved": [],
+                        "key_metrics": {
+                            "payment_coverage_ratio": 0,
+                            "average_daily_balance_trend": "N/A",
+                            "lowest_monthly_balance": 0,
+                            "highest_nsf_month_count": 0
+                        }
                     }
                 }
             }
 
-        logger.debug(f"Raw response length: {len(response)}")
-        logger.debug("First 100 chars of raw response:")
-        logger.debug(response[:100])
-        
-        # Clean the response
+        # Clean the response if it's wrapped in markdown code blocks
         cleaned_response = response.strip()
+        if "```json" in cleaned_response:
+            cleaned_response = cleaned_response.split("```json")[1]
         if "```" in cleaned_response:
-            # Extract content between first and last ```
-            parts = cleaned_response.split("```")
-            if len(parts) >= 3:
-                cleaned_response = parts[1]
-                # Remove potential language identifier
-                if cleaned_response.startswith("json"):
-                    cleaned_response = cleaned_response[4:].strip()
+            cleaned_response = cleaned_response.split("```")[0]
+        cleaned_response = cleaned_response.strip()
         
-        logger.debug("Cleaned response:")
-        logger.debug(cleaned_response)
-        
-        # Validate JSON format
+        # Log the cleaned response for debugging
+        logger.info("Cleaned response:")
+        logger.info("-" * 50)
+        logger.info(cleaned_response)
+        logger.info("-" * 50)
+            
         try:
-            json_response = json.loads(cleaned_response)
+            analysis_result = json.loads(cleaned_response)
+            # Ensure we have the loan_recommendation structure
+            if "loan_recommendation" not in analysis_result:
+                logger.warning("Missing loan_recommendation in analysis result")
+                analysis_result = {
+                    "loan_recommendation": analysis_result
+                }
             
-            # Validate required fields
-            if "loan_recommendation" not in json_response:
-                raise ValueError("Missing loan_recommendation object")
-                
-            required_fields = [
-                "approval_decision", 
-                "confidence_score", 
-                "max_monthly_payment_amount",
-                "max_loan_amount",
-                "key_metrics",
-                "risk_factors",
-                "mitigating_factors",
-                "detailed_analysis",
-                "conditions_if_approved"
-            ]
-            
-            for field in required_fields:
-                if field not in json_response["loan_recommendation"]:
-                    raise ValueError(f"Missing required field: {field}")
-            
-            logger.info("✅ Successfully validated credit analysis JSON")
-            return json.dumps(json_response, indent=2)
-            
+            return {
+                "credit_analysis": analysis_result
+            }
+
         except json.JSONDecodeError as e:
-            logger.error(f"❌ JSON parsing error: {str(e)}")
-            logger.error(f"Failed to parse response: {cleaned_response}")
-            return json.dumps({
+            logger.error(f"Failed to parse LLM response as JSON: {e}")
+            logger.error(f"Raw response: {response}")
+            return {
                 "credit_analysis": {
                     "loan_recommendation": {
                         "approval_decision": "ERROR",
                         "confidence_score": 0,
                         "max_loan_amount": 0,
                         "max_monthly_payment_amount": 0,
-                        "detailed_analysis": f"An error occurred during analysis: {str(e)}",
+                        "detailed_analysis": "Failed to parse analysis results",
                         "mitigating_factors": [],
-                        "risk_factors": ["Analysis error occurred"],
-                        "conditions_if_approved": []
+                        "risk_factors": ["Analysis parsing error"],
+                        "conditions_if_approved": [],
+                        "key_metrics": {
+                            "payment_coverage_ratio": 0,
+                            "average_daily_balance_trend": "N/A",
+                            "lowest_monthly_balance": 0,
+                            "highest_nsf_month_count": 0
+                        }
                     }
                 }
-            })
-            
-        except ValueError as e:
-            logger.error(f"❌ Validation error: {str(e)}")
-            return json.dumps({
-                "credit_analysis": {
-                    "loan_recommendation": {
-                        "approval_decision": "ERROR",
-                        "confidence_score": 0,
-                        "max_loan_amount": 0,
-                        "max_monthly_payment_amount": 0,
-                        "detailed_analysis": f"An error occurred during analysis: {str(e)}",
-                        "mitigating_factors": [],
-                        "risk_factors": ["Analysis error occurred"],
-                        "conditions_if_approved": []
-                    }
-                }
-            })
+            }
 
     except Exception as e:
-        logger.error(f"❌ Error in analyze_credit_decision: {str(e)}")
+        logger.error(f"Error in analyze_credit_decision: {str(e)}")
         logger.error("Full traceback:", exc_info=True)
-        # Return a structured response instead of raising an error
         return {
             "credit_analysis": {
                 "loan_recommendation": {
@@ -810,7 +794,13 @@ Return ONLY a valid JSON object in this exact format, with no additional text:
                     "detailed_analysis": f"An error occurred during analysis: {str(e)}",
                     "mitigating_factors": [],
                     "risk_factors": ["Analysis error occurred"],
-                    "conditions_if_approved": []
+                    "conditions_if_approved": [],
+                    "key_metrics": {
+                        "payment_coverage_ratio": 0,
+                        "average_daily_balance_trend": "N/A",
+                        "lowest_monthly_balance": 0,
+                        "highest_nsf_month_count": 0
+                    }
                 }
             }
         } 
