@@ -13,7 +13,7 @@ from typing import List, Dict, Any, Tuple
 import logging
 from pydantic import BaseModel
 from app.services.content_service import ContentService
-from app.tools.analysis_tools import  check_nsf, set_llm,check_statement_continuity,extract_daily_balances,extract_monthly_closing_balances,analyze_credit_decision,analyze_monthly_financials
+from app.tools.analysis_tools import  check_nsf, set_llm,check_statement_continuity,extract_daily_balances,extract_monthly_closing_balances,analyze_credit_decision_term_loan,analyze_monthly_financials
 from app.services.llm_factory import LLMFactory
 from app.config import Config, LLMProvider, ModelType
 import json
@@ -102,72 +102,51 @@ def underwrite():
     
     logger.info(f"Debug mode: {debug_mode}")
     logger.info(f"File paths: {file_paths}")
-    logger.info(f"Provider requested: {provider}")
-    logger.info(f"Provider type: {type(provider)}")
+    logger.info(f"Provider: {provider}")
     
     if not file_paths:
         logger.error("No file paths provided")
         return jsonify({"error": "No file paths provided"}), 400
 
     try:
-        # Create LLM
+        # Initialize LLM
         send_status("llm_setup", "Processing", f"Initializing {provider} LLM")
         if provider:
             try:
                 provider_value = provider.lower()
                 provider = LLMProvider(provider_value)
-                model_type = None
                 analysis_llm = LLMFactory.create_llm(
                     provider=provider,
-                    model_type=model_type
+                    model_type=None  # Use default model type
                 )
-                send_status("llm_setup", "Complete", f"Successfully initialized {provider} LLM")
             except ValueError as e:
-                send_status("llm_setup", "Error", str(e))
                 logger.error(f"Invalid configuration error: {str(e)}")
-                return jsonify({"error": f"Invalid configuration"}), 400
+                return jsonify({
+                    "error": f"Invalid configuration. Valid providers: {[p.value for p in LLMProvider]}"
+                }), 400
         else:
             analysis_llm = LLMFactory.create_llm()
         
         set_llm(analysis_llm)
-        analysis_llm.set_tools([extract_daily_balances, check_nsf, check_statement_continuity,extract_monthly_closing_balances,analyze_monthly_financials])
+        analysis_llm.set_tools([
+            extract_daily_balances, 
+            check_nsf, 
+            check_statement_continuity,
+            extract_monthly_closing_balances,
+            analyze_monthly_financials
+        ])
+        send_status("llm_setup", "Complete", "LLM initialized successfully")
 
-        # Process PDFs
+        # Process and add PDFs
         send_status("pdf_processing", "Processing", "Merging PDF files")
         merged_pdf_path = content_service.merge_pdfs(file_paths)
-        send_status("pdf_processing", "Complete", "PDFs merged successfully")
-
-        # Add PDF to LLM
-        send_status("pdf_analysis", "Processing", "Adding PDF to LLM for analysis")
         analysis_llm.add_pdf(merged_pdf_path)
-        send_status("pdf_analysis", "Complete", "PDF added to LLM")
-        
-        # Orchestration
-        send_status("orchestration", "Processing", "Determining required analyses")
-        orchestration_prompt = """Given the bank statements above, which of these analyses should I run? 
-            Please respond with ONLY the analysis name, one per line:
-            - balance (for average daily balance)
-            - nsf (for NSF fee analysis)
-            - continuity (for statement continuity analysis)
-            - closing_balances (for monthly closing balances)
-            - analyze_monthly_financials (for monthly financials analysis)
-            Example response:
-            balance
-            nsf
-            continuity
-            closing_balances
-            analyze_monthly_financials
-            Do not explain or add any other text."""
-        
-        result_content = analysis_llm.get_response(prompt=orchestration_prompt)
-        recommended_analyses = set(result_content.lower().split('\n'))
-        send_status("orchestration", "Complete", f"Recommended analyses: {', '.join(recommended_analyses)}")
-        
-        # First check statement continuity
+        send_status("pdf_processing", "Complete", "PDFs processed successfully")
+
+        # Check statement continuity first
         send_status("continuity", "Processing", "Checking statement continuity")
         continuity_json = check_statement_continuity("None")
         continuity_data = json.loads(continuity_json)
-        send_status("continuity", "Complete", "Statement continuity check finished")
         
         is_contiguous = continuity_data.get("analysis", {}).get("is_contiguous", False)
         explanation = continuity_data.get("analysis", {}).get("explanation", "No explanation provided")
@@ -178,93 +157,93 @@ def underwrite():
             logger.warning(f"Analysis: {explanation}")
             if gap_details:
                 logger.warning(f"Found gaps: {gap_details}")
-            return {
+            send_status("continuity", "Error", f"Statements not contiguous: {explanation}")
+            return jsonify({
+                "error": "Bank statements are not contiguous",
                 "metrics": {
                     "statement_continuity": continuity_data
                 },
-                "debug": {
-                    "files_processed": len(file_paths)
-                },
-                "orchestration": "continuity_check"
-            }
+                "details": {
+                    "explanation": explanation,
+                    "gap_details": gap_details
+                }
+            }), 400
         
-        # If statements are contiguous, proceed with analysis
-        logger.info("✅ Bank statements are contiguous, proceeding with analysis...")
+        send_status("continuity", "Complete", "Statements are contiguous")
+        
+        # Initialize master response
         master_response = {
             "metrics": {
                 "statement_continuity": continuity_data
-            },
-            "debug": {
-                "files_processed": len(file_paths)
             }
         }
         
-        # Track which analyses have been run
-        completed_analyses = set()
-        
-        for analysis in recommended_analyses:
-            analysis = analysis.strip()
-            
-            if 'balance' in analysis and 'balance' not in completed_analyses:
-                logger.info("Calling extract_daily_balances")
-                input_data = json.dumps({"continuity_data": continuity_data})
-                balances_json = extract_daily_balances(input_data)
-                master_response["metrics"]["daily_balances"] = json.loads(balances_json)
-                completed_analyses.add('balance')
-                
-            elif 'nsf' in analysis and 'nsf' not in completed_analyses:
-                logger.info("Calling check_nsf")
-                nsf_json = check_nsf("None")
-                master_response["metrics"]["nsf_information"] = json.loads(nsf_json)
-                completed_analyses.add('nsf')
-            elif 'closing_balances' in analysis and 'closing_balances' not in completed_analyses:
-                logger.info("Calling extract_monthly_closing_balances")
-                closing_balances_json = extract_monthly_closing_balances("None")
-                master_response["metrics"]["closing_balances"] = json.loads(closing_balances_json)
-                completed_analyses.add('closing_balances')
-            elif 'analyze_monthly_financials' in analysis and 'analyze_monthly_financials' not in completed_analyses:
-                logger.info("Calling analyze_monthly_financials")
-                monthly_financials_json = analyze_monthly_financials("None")
-                master_response["metrics"]["monthly_financials"] = json.loads(monthly_financials_json)
-                completed_analyses.add('monthly_financials')
-        
-        # Add orchestration info
-        master_response["orchestration"] = "\n".join(completed_analyses)
-        
-        # Now switch to REASONING LLM for credit analysis
-        logger.info("🔄 Switching to REASONING LLM for credit analysis")
-        reasoning_llm = LLMFactory.create_llm(
-            provider=LLMProvider.OPENAI,
-            model_type=ModelType.REASONING
-        )
-        set_llm(reasoning_llm)
-        # Feed the master_response to the reasoning LLM
-        reasoning_llm.add_json(master_response)
-        
-        # Now use the analyze_credit_decision tool
-        send_status("credit_analysis", "Processing", "Performing final credit analysis")
-        credit_analysis = analyze_credit_decision(json.dumps(master_response))
-        send_status("credit_analysis", "Complete", "Credit analysis finished")
-        
+        # Run all analyses in sequence
         try:
+            # 1. Daily Balances
+            send_status("daily_balances", "Processing", "Analyzing daily balances")
+            input_data = json.dumps({"continuity_data": continuity_data})
+            balances_json = extract_daily_balances(input_data)
+            master_response["metrics"]["daily_balances"] = json.loads(balances_json)
+            send_status("daily_balances", "Complete", "Daily balance analysis complete")
+            
+            # 2. NSF Check
+            send_status("nsf", "Processing", "Checking for NSF incidents")
+            nsf_json = check_nsf("None")
+            master_response["metrics"]["nsf_information"] = json.loads(nsf_json)
+            send_status("nsf", "Complete", "NSF analysis complete")
+            
+            # 3. Monthly Closing Balances
+            send_status("closing_balances", "Processing", "Analyzing monthly closing balances")
+            closing_balances_json = extract_monthly_closing_balances("None")
+            master_response["metrics"]["closing_balances"] = json.loads(closing_balances_json)
+            send_status("closing_balances", "Complete", "Monthly closing balance analysis complete")
+            
+            # 4. Monthly Financials
+            send_status("monthly_financials", "Processing", "Analyzing monthly financials")
+            monthly_financials_json = analyze_monthly_financials("None")
+            master_response["metrics"]["monthly_financials"] = json.loads(monthly_financials_json)
+            send_status("monthly_financials", "Complete", "Monthly financial analysis complete")
+            
+        except Exception as e:
+            logger.error(f"Error during analysis: {str(e)}")
+            send_status("analysis", "Error", f"Analysis failed: {str(e)}")
+            return jsonify({
+                "error": "Analysis failed",
+                "details": str(e),
+                "partial_results": master_response
+            }), 500
+        
+        # Switch to reasoning LLM for credit analysis
+        send_status("credit_analysis", "Processing", "Performing final credit analysis")
+        try:
+            reasoning_llm = LLMFactory.create_llm(
+                provider=LLMProvider.OPENAI,
+                model_type=ModelType.REASONING
+            )
+            set_llm(reasoning_llm)
+            reasoning_llm.add_json(master_response)
+            
+            credit_analysis = analyze_credit_decision_term_loan(json.dumps(master_response))
             credit_analysis_json = json.loads(credit_analysis)
             master_response["credit_analysis"] = credit_analysis_json
-            logger.info("✅ Credit analysis completed and added to master response")
-        except json.JSONDecodeError as e:
-            logger.error(f"❌ Error parsing credit analysis result: {str(e)}")
+            send_status("credit_analysis", "Complete", "Credit analysis complete")
+            
+        except Exception as e:
+            logger.error(f"Error during credit analysis: {str(e)}")
+            send_status("credit_analysis", "Error", f"Credit analysis failed: {str(e)}")
+            # Continue without credit analysis
             master_response["credit_analysis"] = {
-                "error": "Failed to parse credit analysis",
-                "raw_response": credit_analysis
+                "error": f"Credit analysis failed: {str(e)}"
             }
-
-        # Final response
-        send_status("complete", "Success", "Analysis complete")
+        
+        send_status("complete", "Success", "All analyses complete")
         return jsonify(master_response)
 
     except Exception as e:
-        send_status("error", "Error", str(e))
         logger.error(f"Error in underwrite: {str(e)}")
         logger.error(traceback.format_exc())
+        send_status("error", "Error", f"Unexpected error: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 @app.route('/clear-uploads', methods=['POST'])
