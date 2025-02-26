@@ -359,10 +359,15 @@ function displayResults(response) {
     // Update Statement Overview
     if (statementContinuity) {
         statementContinuity.innerHTML = `
-            <div class="space-y-4">
-                <div class="metric">
-                    <strong class="text-gray-700">Analysis Summary</strong>
-                    <p class="text-gray-600 mt-2">${recommendation.detailed_analysis || 'No analysis available'}</p>
+            <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm h-full">
+                <div class="flex items-center gap-2 mb-4">
+                    <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                    <h3 class="text-lg font-semibold text-gray-800">Analysis Summary</h3>
+                </div>
+                <div class="prose prose-sm max-w-none text-gray-600">
+                    ${recommendation.detailed_analysis || 'No analysis available'}
                 </div>
             </div>
         `;
@@ -371,18 +376,34 @@ function displayResults(response) {
     // Update Key Metrics
     if (keyMetrics) {
         keyMetrics.innerHTML = `
-            <div class="grid gap-4">
-                <div class="metric">
-                    <strong class="text-gray-700 block mb-1">Payment Coverage</strong>
-                    <p class="text-2xl font-semibold">${(metrics.payment_coverage_ratio || 0).toFixed(2)}x</p>
+            <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm h-full">
+                <div class="flex items-center gap-2 mb-4">
+                    <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                    <h3 class="text-lg font-semibold text-gray-800">Key Metrics</h3>
                 </div>
-                <div class="metric">
-                    <strong class="text-gray-700 block mb-1">Balance Trend</strong>
-                    <p class="text-2xl font-semibold">${metrics.average_daily_balance_trend || 'N/A'}</p>
-                </div>
-                <div class="metric">
-                    <strong class="text-gray-700 block mb-1">Lowest Balance</strong>
-                    <p class="text-2xl font-semibold">$${formatNumber((metrics.lowest_monthly_balance || 0).toFixed(2))}</p>
+                <div class="grid gap-6">
+                    <div class="p-4 bg-gray-50 rounded-lg">
+                        <div class="text-sm text-gray-600 mb-1">Payment Coverage</div>
+                        <div class="text-2xl font-bold text-gray-900">
+                            ${(metrics.payment_coverage_ratio || 0).toFixed(2)}x
+                        </div>
+                    </div>
+                    
+                    <div class="p-4 bg-gray-50 rounded-lg">
+                        <div class="text-sm text-gray-600 mb-1">Balance Trend</div>
+                        <div class="text-2xl font-bold text-gray-900">
+                            ${metrics.average_daily_balance_trend || 'N/A'}
+                        </div>
+                    </div>
+                    
+                    <div class="p-4 bg-gray-50 rounded-lg">
+                        <div class="text-sm text-gray-600 mb-1">Lowest Balance</div>
+                        <div class="text-2xl font-bold text-gray-900">
+                            $${formatNumber((metrics.lowest_monthly_balance || 0).toFixed(2))}
+                        </div>
+                    </div>
                 </div>
             </div>
         `;
@@ -390,129 +411,280 @@ function displayResults(response) {
     
     // Update Monthly Data
     const monthlyData = response?.metrics?.monthly_financials?.monthly_data || {};
-    const monthlyDataHtml = Object.entries(monthlyData)
-        .map(([month, data]) => `
-            <div class="month-group border-b border-gray-200 last:border-0 py-3">
-                <h5 class="font-semibold text-gray-700 mb-2">${month}</h5>
-                <div class="grid gap-2">
-                    <div class="stat-item flex justify-between">
-                        <span class="text-gray-600">Revenue:</span>
-                        <span class="font-medium">$${formatNumber(data.revenue.toFixed(2))}</span>
-                    </div>
-                    <div class="stat-item flex justify-between">
-                        <span class="text-gray-600">Expenses:</span>
-                        <span class="font-medium">$${formatNumber(data.expenses.toFixed(2))}</span>
-                    </div>
-                    <div class="stat-item flex justify-between">
-                        <span class="text-gray-600">Cash Flow:</span>
-                        <span class="font-medium ${data.cashflow >= 0 ? 'text-green-600' : 'text-red-600'}">
-                            $${formatNumber(data.cashflow.toFixed(2))}
-                        </span>
-                    </div>
-                </div>
+    const monthlyDataHtml = `
+        <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm h-full">
+            <div class="flex items-center gap-2 mb-4">
+                <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                </svg>
+                <h3 class="text-lg font-semibold text-gray-800">Monthly Data</h3>
             </div>
-        `).join('');
+            <div class="space-y-4">
+                ${Object.entries(monthlyData).map(([month, data]) => `
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h5 class="font-semibold text-gray-700 mb-3">${month}</h5>
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-600">Revenue</span>
+                                <span class="font-medium text-gray-900">$${formatNumber(data.revenue.toFixed(2))}</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-600">Expenses</span>
+                                <span class="font-medium text-gray-900">$${formatNumber(data.expenses.toFixed(2))}</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-600">Cash Flow</span>
+                                <span class="font-medium ${data.cashflow >= 0 ? 'text-green-600' : 'text-red-600'}">
+                                    $${formatNumber(data.cashflow.toFixed(2))}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
     document.querySelector('.monthly-data').innerHTML = monthlyDataHtml || '<p class="text-gray-500">No monthly data available</p>';
 
     // Update Financial Statistics
     const avgBalanceHtml = `
-        <div class="stat-group">
-            <h5>Monthly Averages</h5>
-            <div class="stat-item">
-                <span class="stat-label">Revenue:</span>
-                <span class="stat-value">$${formatNumber((monthlyFinancials?.revenue?.average || 0).toFixed(2))}</span>
+        <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm h-full">
+            <div class="flex items-center gap-2 mb-4">
+                <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+                <h3 class="text-lg font-semibold text-gray-800">Financial Statistics</h3>
             </div>
-            <div class="stat-item">
-                <span class="stat-label">Expenses:</span>
-                <span class="stat-value">$${formatNumber((monthlyFinancials?.expenses?.average || 0).toFixed(2))}</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-label">Cash Flow:</span>
-                <span class="stat-value ${(monthlyFinancials?.cashflow?.average || 0) >= 0 ? 'positive' : 'negative'}">
-                    $${formatNumber((monthlyFinancials?.cashflow?.average || 0).toFixed(2))}
-                </span>
+            <div class="space-y-6">
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-700 mb-3">Monthly Averages</h4>
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">Revenue</span>
+                            <span class="font-medium text-gray-900">$${formatNumber((monthlyFinancials?.revenue?.average || 0).toFixed(2))}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">Expenses</span>
+                            <span class="font-medium text-gray-900">$${formatNumber((monthlyFinancials?.expenses?.average || 0).toFixed(2))}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">Cash Flow</span>
+                            <span class="font-medium ${(monthlyFinancials?.cashflow?.average || 0) >= 0 ? 'text-green-600' : 'text-red-600'}">
+                                $${formatNumber((monthlyFinancials?.cashflow?.average || 0).toFixed(2))}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-700 mb-3">Standard Deviations</h4>
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">Revenue</span>
+                            <span class="font-medium text-gray-900">$${formatNumber((monthlyFinancials?.revenue?.std_deviation || 0).toFixed(2))}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">Expenses</span>
+                            <span class="font-medium text-gray-900">$${formatNumber((monthlyFinancials?.expenses?.std_deviation || 0).toFixed(2))}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">Cash Flow</span>
+                            <span class="font-medium text-gray-900">$${formatNumber((monthlyFinancials?.cashflow?.std_deviation || 0).toFixed(2))}</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-        <div class="stat-group">
-            <h5>Standard Deviations</h5>
-            <div class="stat-item">
-                <span class="stat-label">Revenue:</span>
-                <span class="stat-value">$${formatNumber((monthlyFinancials?.revenue?.std_deviation || 0).toFixed(2))}</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-label">Expenses:</span>
-                <span class="stat-value">$${formatNumber((monthlyFinancials?.expenses?.std_deviation || 0).toFixed(2))}</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-label">Cash Flow:</span>
-                <span class="stat-value">$${formatNumber((monthlyFinancials?.cashflow?.std_deviation || 0).toFixed(2))}</span>
-            </div>
-        </div>`;
+    `;
     document.querySelector('.avg-balance').innerHTML = avgBalanceHtml;
 
     // Update NSF Information
     const nsfHtml = `
-        <div class="stat-item">
-            <span class="stat-label">Total NSF Incidents:</span>
-            <span class="stat-value">${nsfData.incident_count || 0}</span>
+        <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm h-full">
+            <div class="flex items-center gap-2 mb-4">
+                <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <h3 class="text-lg font-semibold text-gray-800">NSF Activity</h3>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-4 space-y-3">
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-600">Total NSF Incidents</span>
+                    <span class="font-medium text-red-600">${nsfData.incident_count || 0}</span>
+                </div>
+                <div class="h-px bg-gray-200"></div>
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-600">Total NSF Fees</span>
+                    <span class="font-medium text-red-600">$${formatNumber((nsfData.total_fees || 0).toFixed(2))}</span>
+                </div>
+                <div class="h-px bg-gray-200"></div>
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-600">Highest NSF Month</span>
+                    <span class="font-medium text-gray-900">${nsfData.highest_nsf_month || 'N/A'}</span>
+                </div>
+            </div>
         </div>
-        <div class="stat-item">
-            <span class="stat-label">Total NSF Fees:</span>
-            <span class="stat-value">$${formatNumber((nsfData.total_fees || 0).toFixed(2))}</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-label">Highest NSF Month:</span>
-            <span class="stat-value">${nsfData.highest_nsf_month || 'N/A'}</span>
-        </div>`;
+    `;
     document.querySelector('.nsf-info').innerHTML = nsfHtml;
 
     // Update Monthly Closing Balances
     const monthlyBalances = response?.metrics?.closing_balances?.monthly_closing_balances || [];
-    if (monthlyBalances && monthlyBalances.length > 0) {
-        const closingBalanceHtml = monthlyBalances.map(balance => `
-            <div class="stat-item">
-                <span class="stat-label">${balance.month}:</span>
-                <span class="stat-value">
-                    $${formatNumber((balance.balance || 0).toFixed(2))}
-                    <small class="balance-type">${balance.verification}</small>
-                </span>
+    const closingBalanceHtml = `
+        <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm h-full">
+            <div class="flex items-center gap-2 mb-4">
+                <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z"/>
+                </svg>
+                <h3 class="text-lg font-semibold text-gray-800">Monthly Closing</h3>
             </div>
-        `).join('');
-        document.querySelector('.closing-balance').innerHTML = closingBalanceHtml;
-    } else {
-        document.querySelector('.closing-balance').innerHTML = `
-            <div class="stat-item">
-                <p>No monthly balance data available</p>
-            </div>
-        `;
-    }
+            ${monthlyBalances.length > 0 ? `
+                <div class="space-y-3">
+                    ${monthlyBalances.map(balance => `
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-600">${balance.month}</span>
+                                <div class="text-right">
+                                    <span class="block font-medium text-gray-900">$${formatNumber((balance.balance || 0).toFixed(2))}</span>
+                                    <span class="text-sm text-gray-500">${balance.verification}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            ` : '<p class="text-gray-500">No monthly balance data available</p>'}
+        </div>
+    `;
+    document.querySelector('.closing-balance').innerHTML = closingBalanceHtml;
 
     // Update the daily balance chart if it exists
     const dailyBalanceChart = document.querySelector('.daily-balance-chart');
     if (dailyBalanceChart) {
         const dailyBalances = response?.metrics?.daily_balances?.daily_balances || [];
         if (dailyBalances.length > 0) {
-            const balanceItems = dailyBalances.map(balance => `
-                <div class="stat-item">
-                    <span class="stat-label">${balance.date}:</span>
-                    <span class="stat-value">
-                        $${formatNumber((balance.balance || 0).toFixed(2))}
-                        <small class="balance-type">${balance.balance_type === 'direct' ? '(Direct)' : '(Calculated)'}</small>
-                    </span>
-                </div>
-            `).join('');
-
             dailyBalanceChart.innerHTML = `
-                <div class="metric-content">
-                    ${balanceItems}
+                <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm h-full">
+                    <div class="flex items-center gap-2 mb-4">
+                        <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
+                        </svg>
+                        <h3 class="text-lg font-semibold text-gray-800">Daily Balance Trend</h3>
+                    </div>
+                    <div class="h-[300px] relative">
+                        <canvas id="dailyBalanceCanvas"></canvas>
+                    </div>
+                    <div class="mt-4 text-sm text-gray-500 text-right">
+                        ● Direct Balance  ● Calculated Balance
+                    </div>
                 </div>
             `;
+
+            // Prepare data for the chart
+            const dates = dailyBalances.map(item => item.date);
+            const directBalances = dailyBalances.map(item => 
+                item.balance_type === 'direct' ? item.balance : null
+            );
+            const calculatedBalances = dailyBalances.map(item => 
+                item.balance_type === 'calculated' ? item.balance : null
+            );
+
+            // Create the chart
+            const ctx = document.getElementById('dailyBalanceCanvas').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [
+                        {
+                            label: 'Direct Balance',
+                            data: directBalances,
+                            borderColor: '#2563eb',
+                            backgroundColor: '#2563eb',
+                            pointBackgroundColor: '#2563eb',
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            spanGaps: false,
+                            segment: {
+                                borderDash: [0, 0]
+                            }
+                        },
+                        {
+                            label: 'Calculated Balance',
+                            data: calculatedBalances,
+                            borderColor: '#64748b',
+                            backgroundColor: '#64748b',
+                            pointBackgroundColor: '#64748b',
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            spanGaps: false,
+                            segment: {
+                                borderDash: [4, 4]
+                            }
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += new Intl.NumberFormat('en-US', {
+                                            style: 'currency',
+                                            currency: 'USD'
+                                        }).format(context.parsed.y);
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                maxRotation: 45,
+                                minRotation: 45
+                            }
+                        },
+                        y: {
+                            beginAtZero: false,
+                            ticks: {
+                                callback: function(value) {
+                                    return new Intl.NumberFormat('en-US', {
+                                        style: 'currency',
+                                        currency: 'USD',
+                                        maximumFractionDigits: 0
+                                    }).format(value);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
         } else {
             dailyBalanceChart.innerHTML = `
-                <div class="metric-content">
-                    <div class="stat-item">
-                        <p>No daily balance data available</p>
+                <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+                    <div class="flex items-center gap-2 mb-4">
+                        <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
+                        </svg>
+                        <h3 class="text-lg font-semibold text-gray-800">Daily Balance Trend</h3>
                     </div>
+                    <p class="text-gray-500">No daily balance data available</p>
                 </div>
             `;
         }
