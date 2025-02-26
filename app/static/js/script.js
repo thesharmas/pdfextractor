@@ -382,7 +382,13 @@ function initializeJsonCopy() {
     if (!copyButton) return;
 
     copyButton.addEventListener('click', async () => {
-        const jsonContent = document.getElementById('results-content');
+        // Get the pre element inside the raw-tab that contains the JSON
+        const jsonContent = document.querySelector('#raw-tab pre');
+        
+        if (!jsonContent) {
+            console.error('JSON content element not found');
+            return;
+        }
         
         try {
             // Get the text content and format it
@@ -402,12 +408,19 @@ function initializeJsonCopy() {
             
             // Reset button after 2 seconds
             setTimeout(() => {
-                copyButton.innerHTML = originalContent;
+                copyButton.innerHTML = `
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Copy JSON
+                `;
                 copyButton.classList.remove('bg-green-50', 'text-green-600');
                 copyButton.classList.add('bg-blue-50', 'text-blue-600');
             }, 2000);
             
         } catch (err) {
+            console.error('Failed to copy JSON:', err);
+            
             // Show error state
             copyButton.innerHTML = `
                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -420,12 +433,15 @@ function initializeJsonCopy() {
             
             // Reset button after 2 seconds
             setTimeout(() => {
-                copyButton.innerHTML = originalContent;
+                copyButton.innerHTML = `
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Copy JSON
+                `;
                 copyButton.classList.remove('bg-red-50', 'text-red-600');
                 copyButton.classList.add('bg-blue-50', 'text-blue-600');
             }, 2000);
-            
-            console.error('Failed to copy JSON:', err);
         }
     });
 }
@@ -524,12 +540,13 @@ function displayResults(response) {
                         Copy JSON
                     </button>
                 </div>
-                <pre class="bg-gray-100 rounded-lg p-4 font-mono text-sm overflow-x-auto">${JSON.stringify(response, null, 2)}</pre>
+                <pre class="bg-gray-100 rounded-lg p-4 font-mono text-sm overflow-x-auto whitespace-pre-wrap">${JSON.stringify(response, null, 2)}</pre>
             `;
+            
+            // Initialize copy button functionality after updating the content
+            initializeJsonCopy();
         }
 
-        // Initialize copy button functionality
-        initializeJsonCopy();
         return;
     }
 
@@ -541,9 +558,16 @@ function displayResults(response) {
         if (recommendation) {
             summaryTab.innerHTML = `
                 <div class="bg-white shadow rounded-lg p-6">
-                    <h2 class="text-2xl font-bold mb-4 ${recommendation.approval_decision ? 'text-green-600' : 'text-red-600'}">
-                        ${recommendation.approval_decision ? 'Approved' : 'Not Approved'}
-                    </h2>
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-2xl font-bold text-gray-900">Loan Decision</h2>
+                        <span class="px-4 py-2 rounded-full text-sm font-semibold ${
+                            recommendation.approval_decision 
+                            ? 'bg-green-100 text-green-800 border border-green-200' 
+                            : 'bg-red-100 text-red-800 border border-red-200'
+                        }">
+                            ${recommendation.approval_decision ? 'Approved' : 'Not Approved'}
+                        </span>
+                    </div>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                         <div class="p-4 bg-gray-50 rounded-lg">
@@ -617,12 +641,12 @@ function displayResults(response) {
                     Copy JSON
                 </button>
             </div>
-            <pre class="bg-gray-100 rounded-lg p-4 font-mono text-sm overflow-x-auto">${JSON.stringify(response, null, 2)}</pre>
+            <pre class="bg-gray-100 rounded-lg p-4 font-mono text-sm overflow-x-auto whitespace-pre-wrap">${JSON.stringify(response, null, 2)}</pre>
         `;
+        
+        // Initialize copy button functionality after updating the content
+        initializeJsonCopy();
     }
-
-    // Initialize copy button functionality
-    initializeJsonCopy();
 
     // Show the summary tab by default
     const summaryTabBtn = document.querySelector('[data-tab="summary"]');
