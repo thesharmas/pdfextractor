@@ -215,15 +215,15 @@ def underwrite():
             }), 500
         
         # Switch to reasoning LLM for credit analysis
-        send_status("credit_analysis", "Processing", "Performing final credit analysis")
         try:
             reasoning_llm = LLMFactory.create_llm(
                 provider=LLMProvider.OPENAI,
                 model_type=ModelType.REASONING
             )
+            send_status("llm_setup", "Processing", f"Initializing Reasoning LLM")
             set_llm(reasoning_llm)
             reasoning_llm.add_json(master_response)
-            
+            send_status("credit_analysis", "Processing", "Performing final credit analysis")
             credit_analysis = analyze_credit_decision_term_loan(json.dumps(master_response))
             credit_analysis_json = json.loads(credit_analysis)
             master_response["credit_analysis"] = credit_analysis_json

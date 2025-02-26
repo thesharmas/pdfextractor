@@ -119,7 +119,6 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Clear previous results and status
         resultsSection.style.display = 'none';
-        resultsSection.classList.remove('visible');
         resultsContent.innerHTML = '';
         statusList.innerHTML = '';
         
@@ -128,6 +127,10 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Disable submit button
         submitBtn.disabled = true;
+        
+        // Collapse the upload section
+        uploadContent.style.display = 'none';
+        toggleBtn.classList.add('collapsed');
         
         // Start listening for status updates
         const eventSource = new EventSource('/status');
@@ -355,14 +358,14 @@ function displayResults(response) {
     document.querySelector('.nsf-info').innerHTML = nsfHtml;
 
     // Update Monthly Closing Balances
-    const monthlyBalances = response?.metrics?.monthly_financials?.monthly_balances || [];
+    const monthlyBalances = response?.metrics?.closing_balances?.monthly_closing_balances || [];
     if (monthlyBalances && monthlyBalances.length > 0) {
         const closingBalanceHtml = monthlyBalances.map(balance => `
             <div class="stat-item">
                 <span class="stat-label">${balance.month}:</span>
                 <span class="stat-value">
-                    $${formatNumber((balance.closing_balance || 0).toFixed(2))}
-                    <small class="balance-type">${balance.is_complete ? '(Complete)' : '(Partial)'}</small>
+                    $${formatNumber((balance.balance || 0).toFixed(2))}
+                    <small class="balance-type">${balance.verification}</small>
                 </span>
             </div>
         `).join('');
