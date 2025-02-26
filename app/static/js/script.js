@@ -430,442 +430,223 @@ function initializeJsonCopy() {
     });
 }
 
-// Update displayResults function
+const ResultsState = {
+    CONTINUITY_ERROR: 'CONTINUITY_ERROR',
+    SUCCESS: 'SUCCESS',
+    ERROR: 'ERROR'
+};
+
+function determineResultsState(response) {
+    if (!response) return ResultsState.ERROR;
+    
+    const continuityAnalysis = safeAccess(response, 'metrics.statement_continuity.analysis');
+    if (continuityAnalysis && !continuityAnalysis.is_contiguous) {
+        return ResultsState.CONTINUITY_ERROR;
+    }
+    
+    return ResultsState.SUCCESS;
+}
+
 function displayResults(response) {
-    console.log('displayResults called with:', response);
-    
+    console.log('Response received:', response); // Debug log
+
     const resultsSection = document.getElementById('results-section');
-    const resultsContent = document.getElementById('results-content');
-    const decisionHeader = document.querySelector('.decision-header');
-    const positiveFactor = document.querySelector('.positive-factors');
-    const negativeFactor = document.querySelector('.negative-factors');
-    const recommendations = document.querySelector('.recommendations');
-    
     if (!resultsSection) {
-        console.error('Results section not found!');
+        console.error('Results section not found');
         return;
     }
 
-    // Show results section
+    // Make sure results section is visible
     resultsSection.classList.remove('hidden');
-    
-    // Change this line to correctly access the nested loan recommendation
-    const recommendation = response?.credit_analysis?.loan_recommendation || {};
-    const metrics = response?.metrics || {};
-    const monthlyFinancials = metrics?.monthly_financials?.statistics || {};
-    const nsfData = metrics?.nsf_information || {};
 
-    // Update Credit Decision Tab
-    if (decisionHeader) {
-        // Handle both boolean and string approval decisions
-        const approvalDecision = recommendation.approval_decision;
-        const isApproved = typeof approvalDecision === 'boolean' ? 
-            approvalDecision : 
-            approvalDecision?.toString().toLowerCase() === 'approved';
+    // 1. First check for error response (non-contiguous statements case)
+    if (response.error === "Bank statements are not contiguous") {
+        console.log('Non-contiguous statements error detected'); // Debug log
         
-        const decisionColor = isApproved ? 'green' : 'red';
-        
-        decisionHeader.innerHTML = `
-            <div class="flex flex-col md:flex-row gap-6 items-stretch">
-                <!-- Decision Status Card -->
-                <div class="flex-1 bg-${decisionColor}-50 border-2 border-${decisionColor}-500 rounded-xl p-6 text-center">
-                    <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-${decisionColor}-100 mb-4">
-                        ${isApproved ? 
-                            `<svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                            </svg>` :
-                            `<svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                            </svg>`
-                        }
-                    </div>
-                    <h3 class="text-2xl font-bold text-${decisionColor}-700 mb-2">
-                        ${approvalDecision.toString().toUpperCase()}
-                    </h3>
-                    <div class="text-${decisionColor}-600 font-medium">
-                        Confidence Score: ${((recommendation.confidence_score || 0) * 100).toFixed(1)}%
-                    </div>
-                </div>
-
-                <!-- Loan Details Card -->
-                <div class="flex-1 bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-                    <h4 class="text-lg font-semibold text-gray-800 mb-4">Loan Parameters</h4>
-                    <div class="space-y-3">
-                        <div class="flex justify-between items-center">
-                            <span class="text-gray-600">Maximum Loan Amount</span>
-                            <span class="text-xl font-bold text-gray-800">
-                                $${formatNumber((recommendation.max_loan_amount || 0).toFixed(2))}
-                            </span>
+        // Show the summary tab content
+        const summaryTab = document.getElementById('summary-tab');
+        if (summaryTab) {
+            const continuityData = safeAccess(response, 'metrics.statement_continuity', {});
+            const errorDetails = safeAccess(response, 'details', {});
+            
+            summaryTab.innerHTML = `
+                <div class="bg-red-50 border-l-4 border-red-500 rounded-lg p-6 my-4">
+                    <div class="flex items-center mb-4">
+                        <div class="flex-shrink-0">
+                            <svg class="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                            </svg>
                         </div>
-                        <div class="h-px bg-gray-200"></div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-gray-600">Monthly Payment</span>
-                            <span class="text-xl font-bold text-gray-800">
-                                $${formatNumber((recommendation.max_monthly_payment_amount || 0).toFixed(2))}
-                            </span>
+                        <div class="ml-4">
+                            <h3 class="text-lg font-medium text-red-800">${response.error}</h3>
                         </div>
                     </div>
-                </div>
-            </div>
-        `;
-    } else {
-        console.error('Decision header element not found');
-    }
-
-    // Add error handling for missing elements
-    if (!decisionHeader) console.error('Decision header element not found');
-    if (!positiveFactor) console.error('Positive factors element not found');
-    if (!negativeFactor) console.error('Negative factors element not found');
-    if (!recommendations) console.error('Recommendations element not found');
-
-    // Update Summary Tab Content
-    const summaryTabContent = document.getElementById('summary-tab');
-    if (summaryTabContent) {
-        const loanRecommendation = response?.credit_analysis?.loan_recommendation || {};
-        const approvalDecision = loanRecommendation.approval_decision;
-        
-        summaryTabContent.innerHTML = `
-            <!-- Approval Status Pill -->
-            <div class="mb-6 flex justify-center">
-                <div class="inline-flex items-center ${approvalDecision ? 'bg-green-100' : 'bg-red-100'} px-6 py-2 rounded-full">
-                    <span class="mr-2">
-                        ${approvalDecision ? 
-                            `<svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                            </svg>` :
-                            `<svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                            </svg>`
-                        }
-                    </span>
-                    <span class="${approvalDecision ? 'text-green-800' : 'text-red-800'} font-semibold text-lg">
-                        Loan ${approvalDecision ? 'Approved' : 'Denied'}
-                    </span>
-                    <span class="ml-2 ${approvalDecision ? 'text-green-600' : 'text-red-600'} text-sm">
-                        (${(loanRecommendation.confidence_score * 100).toFixed(1)}% confidence)
-                    </span>
-                </div>
-            </div>
-
-            <!-- Statement Overview Card -->
-            <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
-                <h3 class="text-lg font-semibold text-gray-800 mb-4">
-                    <span class="inline-block mr-2">
-                        <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                    </span>
-                    Statement Overview
-                </h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="bg-gray-50 rounded-lg p-4">
-                        <p class="text-sm text-gray-600 mb-2">Period Covered</p>
-                        <p class="font-semibold text-gray-800">
-                            ${response?.metrics?.statement_continuity?.statement_periods?.[0]?.start_date || 'N/A'} to 
-                            ${response?.metrics?.statement_continuity?.statement_periods?.slice(-1)[0]?.end_date || 'N/A'}
-                        </p>
-                    </div>
-                    <div class="bg-gray-50 rounded-lg p-4">
-                        <p class="text-sm text-gray-600 mb-2">Statement Status</p>
-                        <p class="font-semibold text-gray-800">
-                            ${response?.metrics?.statement_continuity?.analysis?.is_contiguous ? 'Complete' : 'Incomplete'}
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Key Metrics Card -->
-            <div class="bg-white rounded-xl shadow-sm p-6">
-                <h3 class="text-lg font-semibold text-gray-800 mb-4">
-                    <span class="inline-block mr-2">
-                        <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                        </svg>
-                    </span>
-                    Key Metrics
-                </h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <!-- Average Monthly Revenue -->
-                    <div class="bg-gray-50 rounded-lg p-4">
-                        <p class="text-sm text-gray-600 mb-2">Avg Monthly Revenue</p>
-                        <p class="text-xl font-bold text-gray-800">
-                            ${formatNumber(monthlyFinancials?.revenue?.average || 0)}
-                        </p>
-                    </div>
-                    <!-- Average Monthly Expenses -->
-                    <div class="bg-gray-50 rounded-lg p-4">
-                        <p class="text-sm text-gray-600 mb-2">Avg Monthly Expenses</p>
-                        <p class="text-xl font-bold text-gray-800">
-                            ${formatNumber(monthlyFinancials?.expenses?.average || 0)}
-                        </p>
-                    </div>
-                    <!-- NSF Incidents -->
-                    <div class="bg-gray-50 rounded-lg p-4">
-                        <p class="text-sm text-gray-600 mb-2">NSF Incidents</p>
-                        <p class="text-xl font-bold text-gray-800">
-                            ${nsfData?.incident_count || 0}
-                        </p>
-                    </div>
-                    <!-- Lowest Monthly Balance -->
-                    <div class="bg-gray-50 rounded-lg p-4">
-                        <p class="text-sm text-gray-600 mb-2">Lowest Monthly Balance</p>
-                        <p class="text-xl font-bold text-gray-800">
-                            ${formatNumber(metrics?.lowest_monthly_balance || 0)}
-                        </p>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-
-    // Update Raw JSON tab
-    if (resultsContent) {
-        resultsContent.textContent = JSON.stringify(response, null, 2);
-    }
-
-    // Initialize tabs if not already done
-    initializeTabs();
-
-    // In the displayResults function, update the financial analysis section
-    const financialsTab = document.getElementById('financials-tab');
-    if (financialsTab) {
-        const loanRecommendation = response.credit_analysis?.loan_recommendation;
-        if (loanRecommendation) {
-            const content = `
-                <div class="space-y-4">
-                    <!-- Loan Decision Card -->
-                    <div class="bg-white rounded-lg shadow p-6">
-                        <div class="flex items-center justify-between mb-4">
-                            <h3 class="text-lg font-semibold">Loan Decision</h3>
-                            <span class="px-4 py-1 rounded-full ${loanRecommendation.approval_decision ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
-                                ${loanRecommendation.approval_decision ? 'Approved' : 'Not Approved'}
-                            </span>
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <p class="text-gray-600">Confidence Score</p>
-                                <p class="text-lg font-semibold">${(loanRecommendation.confidence_score * 100).toFixed(1)}%</p>
-                            </div>
-                            <div>
-                                <p class="text-gray-600">Max Loan Amount</p>
-                                <p class="text-lg font-semibold">$${formatNumber(loanRecommendation.max_loan_amount)}</p>
-                            </div>
-                            <div>
-                                <p class="text-gray-600">Max Monthly Payment</p>
-                                <p class="text-lg font-semibold">$${formatNumber(loanRecommendation.max_monthly_payment_amount)}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Key Metrics Card -->
-                    <div class="bg-white rounded-lg shadow p-6">
-                        <h3 class="text-lg font-semibold mb-4">Key Metrics</h3>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <p class="text-gray-600">Average Daily Balance Trend</p>
-                                <p class="text-lg font-semibold capitalize">${loanRecommendation.key_metrics.average_daily_balance_trend}</p>
-                            </div>
-                            <div>
-                                <p class="text-gray-600">Highest NSF Month Count</p>
-                                <p class="text-lg font-semibold">${loanRecommendation.key_metrics.highest_nsf_month_count}</p>
-                            </div>
-                            <div>
-                                <p class="text-gray-600">Lowest Monthly Balance</p>
-                                <p class="text-lg font-semibold">$${formatNumber(loanRecommendation.key_metrics.lowest_monthly_balance)}</p>
-                            </div>
-                            <div>
-                                <p class="text-gray-600">Payment Coverage Ratio</p>
-                                <p class="text-lg font-semibold">${loanRecommendation.key_metrics.payment_coverage_ratio.toFixed(2)}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Analysis Details Card -->
-                    <div class="bg-white rounded-lg shadow p-6">
-                        <h3 class="text-lg font-semibold mb-4">Detailed Analysis</h3>
-                        <p class="text-gray-700 mb-4">${loanRecommendation.detailed_analysis}</p>
+                    
+                    <div class="ml-10">
+                        <p class="text-red-700 mb-4">${errorDetails.explanation}</p>
                         
-                        <div class="grid grid-cols-2 gap-6">
-                            <div>
-                                <h4 class="font-semibold text-gray-700 mb-2">Risk Factors</h4>
-                                <ul class="list-disc pl-5 text-red-600">
-                                    ${loanRecommendation.risk_factors.map(factor => `<li>${factor}</li>`).join('')}
+                        ${errorDetails.gap_details && errorDetails.gap_details.length > 0 ? `
+                            <div class="mt-4">
+                                <h4 class="text-sm font-semibold text-red-800 mb-2">Statement Gaps Found:</h4>
+                                <ul class="list-disc list-inside space-y-1 text-red-700">
+                                    ${errorDetails.gap_details.map(gap => `
+                                        <li class="text-sm">${gap}</li>
+                                    `).join('')}
                                 </ul>
                             </div>
-                            <div>
-                                <h4 class="font-semibold text-gray-700 mb-2">Mitigating Factors</h4>
-                                <ul class="list-disc pl-5 text-green-600">
-                                    ${loanRecommendation.mitigating_factors.map(factor => `<li>${factor}</li>`).join('')}
-                                </ul>
+                        ` : ''}
+
+                        <div class="mt-6 pt-4 border-t border-red-200">
+                            <h4 class="text-sm font-semibold text-red-800 mb-2">Uploaded Statement Periods:</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                                ${continuityData.statement_periods ? continuityData.statement_periods.map(period => `
+                                    <div class="text-sm text-red-700 bg-red-50 rounded p-2">
+                                        ${period.start_date} to ${period.end_date}
+                                    </div>
+                                `).join('') : ''}
                             </div>
                         </div>
-                    </div>
-
-                    <!-- Conditions Card -->
-                    <div class="bg-white rounded-lg shadow p-6">
-                        <h3 class="text-lg font-semibold mb-4">Conditions if Approved</h3>
-                        <ul class="list-disc pl-5 text-gray-700">
-                            ${loanRecommendation.conditions_if_approved.map(condition => `<li>${condition}</li>`).join('')}
-                        </ul>
                     </div>
                 </div>
             `;
-            financialsTab.innerHTML = content;
-        } else {
-            financialsTab.innerHTML = '<div class="p-4 text-gray-600">No financial analysis data available.</div>';
+        }
+
+        // Update raw JSON tab
+        const rawTab = document.getElementById('raw-tab');
+        if (rawTab) {
+            rawTab.innerHTML = `
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-800">Raw JSON Data</h3>
+                    <button id="copy-json" class="flex items-center px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        Copy JSON
+                    </button>
+                </div>
+                <pre class="bg-gray-100 rounded-lg p-4 font-mono text-sm overflow-x-auto">${JSON.stringify(response, null, 2)}</pre>
+            `;
+        }
+
+        // Initialize copy button functionality
+        initializeJsonCopy();
+        return;
+    }
+
+    // 2. For success case, update all tabs
+    // Update Summary tab (Credit Decision)
+    const summaryTab = document.getElementById('summary-tab');
+    if (summaryTab) {
+        const recommendation = safeAccess(response, 'credit_analysis.loan_recommendation');
+        if (recommendation) {
+            summaryTab.innerHTML = `
+                <div class="bg-white shadow rounded-lg p-6">
+                    <h2 class="text-2xl font-bold mb-4 ${recommendation.approval_decision ? 'text-green-600' : 'text-red-600'}">
+                        ${recommendation.approval_decision ? 'Approved' : 'Not Approved'}
+                    </h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div class="p-4 bg-gray-50 rounded-lg">
+                            <h3 class="font-semibold mb-2">Maximum Loan Amount</h3>
+                            <p class="text-2xl font-bold">$${formatNumber(recommendation.max_loan_amount)}</p>
+                        </div>
+                        <div class="p-4 bg-gray-50 rounded-lg">
+                            <h3 class="font-semibold mb-2">Monthly Payment</h3>
+                            <p class="text-2xl font-bold">$${formatNumber(recommendation.max_monthly_payment_amount)}</p>
+                        </div>
+                    </div>
+
+                    <div class="mb-6">
+                        <h3 class="font-semibold mb-2">Risk Factors</h3>
+                        <ul class="list-disc list-inside space-y-1">
+                            ${recommendation.risk_factors.map(factor => `
+                                <li class="text-red-600">${factor}</li>
+                            `).join('')}
+                        </ul>
+                    </div>
+
+                    <div class="mb-6">
+                        <h3 class="font-semibold mb-2">Mitigating Factors</h3>
+                        <ul class="list-disc list-inside space-y-1">
+                            ${recommendation.mitigating_factors.map(factor => `
+                                <li class="text-green-600">${factor}</li>
+                            `).join('')}
+                        </ul>
+                    </div>
+
+                    ${recommendation.conditions_if_approved ? `
+                        <div class="mb-6">
+                            <h3 class="font-semibold mb-2">Conditions if Approved</h3>
+                            <ul class="list-disc list-inside space-y-1">
+                                ${recommendation.conditions_if_approved.map(condition => `
+                                    <li>${condition}</li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                    ` : ''}
+
+                    <div class="mt-4 p-4 bg-gray-50 rounded-lg">
+                        <h3 class="font-semibold mb-2">Detailed Analysis</h3>
+                        <p>${recommendation.detailed_analysis}</p>
+                    </div>
+                </div>
+            `;
         }
     }
 
-    // In the displayResults function, add the following section to handle the Financial Summary tab
-    const financialTab = document.getElementById('financial-tab');
-    if (financialTab) {
-        // Get the data
-        const dailyBalances = response.metrics?.daily_balances?.daily_balances || [];
-        const monthlyBalances = response.metrics?.closing_balances?.monthly_closing_balances || [];
-        const monthlyFinancials = response.metrics?.monthly_financials?.monthly_data || {};
-        const statistics = response.metrics?.monthly_financials?.statistics || {};
+    // Update Financial Summary tab
+    if (response.metrics) {
+        updateFinancialTab(response);
+    }
 
-        // Create Daily Balance Chart
-        const ctx = document.getElementById('dailyBalanceChart').getContext('2d');
-        new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: dailyBalances.map(item => item.date),
-                datasets: [{
-                    label: 'Daily Balance',
-                    data: dailyBalances.map(item => item.balance),
-                    borderColor: 'rgb(59, 130, 246)',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    fill: true,
-                    tension: 0.4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return `Balance: $${formatNumber(context.raw)}`;
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function(value) {
-                                return '$' + formatNumber(value);
-                            }
-                        }
-                    }
-                }
-            }
-        });
+    // Update Credit Decision tab
+    if (response.credit_analysis) {
+        updateFinancialsTab(response);
+    }
 
-        // Populate Monthly Balance Table
-        const monthlyBalanceTable = document.getElementById('monthlyBalanceTable');
-        monthlyBalanceTable.innerHTML = `
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Closing Balance</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Verification</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        ${monthlyBalances.map(balance => `
-                            <tr>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${balance.month}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">$${formatNumber(balance.balance)}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${balance.verification}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
+    // Update Raw JSON tab
+    const rawTab = document.getElementById('raw-tab');
+    if (rawTab) {
+        rawTab.innerHTML = `
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-gray-800">Raw JSON Data</h3>
+                <button id="copy-json" class="flex items-center px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Copy JSON
+                </button>
             </div>
+            <pre class="bg-gray-100 rounded-lg p-4 font-mono text-sm overflow-x-auto">${JSON.stringify(response, null, 2)}</pre>
         `;
+    }
 
-        // Populate Monthly Cash Flow Summary
-        const monthlyCashFlow = document.getElementById('monthlyCashFlow');
-        monthlyCashFlow.innerHTML = `
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Monthly Data Table -->
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Expenses</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Cash Flow</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            ${Object.entries(monthlyFinancials).map(([month, data]) => `
-                                <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${month}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">$${formatNumber(data.revenue)}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">$${formatNumber(data.expenses)}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-right ${data.cashflow >= 0 ? 'text-green-600' : 'text-red-600'}">
-                                        $${formatNumber(data.cashflow)}
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
+    // Initialize copy button functionality
+    initializeJsonCopy();
 
-                <!-- Statistics Summary -->
-                <div class="bg-gray-50 rounded-lg p-6">
-                    <h4 class="text-md font-semibold text-gray-800 mb-4">Aggregate Statistics</h4>
-                    <div class="space-y-4">
-                        <div>
-                            <p class="text-sm text-gray-600">Average Monthly Revenue</p>
-                            <p class="text-lg font-semibold">$${formatNumber(statistics.revenue.average)}</p>
-                        </div>
-                        <div>
-                            <p class="text-sm text-gray-600">Average Monthly Expenses</p>
-                            <p class="text-lg font-semibold">$${formatNumber(statistics.expenses.average)}</p>
-                        </div>
-                        <div>
-                            <p class="text-sm text-gray-600">Average Monthly Cash Flow</p>
-                            <p class="text-lg font-semibold ${statistics.cashflow.average >= 0 ? 'text-green-600' : 'text-red-600'}">
-                                $${formatNumber(statistics.cashflow.average)}
-                            </p>
-                        </div>
-                        <div class="pt-4 border-t border-gray-200">
-                            <p class="text-sm text-gray-600">Standard Deviations</p>
-                            <div class="grid grid-cols-2 gap-4 mt-2">
-                                <div>
-                                    <p class="text-xs text-gray-500">Revenue</p>
-                                    <p class="text-sm font-medium">$${formatNumber(statistics.revenue.std_deviation)}</p>
-                                </div>
-                                <div>
-                                    <p class="text-xs text-gray-500">Expenses</p>
-                                    <p class="text-sm font-medium">$${formatNumber(statistics.expenses.std_deviation)}</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
+    // Show the summary tab by default
+    const summaryTabBtn = document.querySelector('[data-tab="summary"]');
+    if (summaryTabBtn) {
+        summaryTabBtn.click();
     }
 }
 
-// Helper function for number formatting
-function formatNumber(number) {
-    return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
+// Helper function for safe object access
+function safeAccess(obj, path, defaultValue = null) {
+    try {
+        return path.split('.').reduce((acc, part) => acc?.[part], obj) ?? defaultValue;
+    } catch (e) {
+        console.warn(`Error accessing path ${path}:`, e);
+        return defaultValue;
+    }
+}
+
+// Helper function to format numbers
+function formatNumber(num) {
+    return num ? num.toLocaleString('en-US', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
-    }).format(number);
+    }) : '0.00';
 }
 
 // Tab initialization function
@@ -977,5 +758,267 @@ function handleTabClick(e) {
     const pane = document.getElementById(`${tabId}-tab`);
     if (pane) {
         pane.classList.remove('hidden');
+    }
+}
+
+// Update Financial Analysis tab with safety checks
+function updateFinancialsTab(response) {
+    const financialsTab = document.getElementById('financials-tab');
+    if (!financialsTab) return;
+
+    const recommendation = safeAccess(response, 'credit_analysis.loan_recommendation', {});
+    if (!recommendation) {
+        financialsTab.innerHTML = '<div class="p-4 text-gray-600">No financial analysis data available.</div>';
+        return;
+    }
+
+    const content = `
+        <div class="space-y-4">
+            <!-- Loan Decision Card -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold">Loan Decision</h3>
+                    <span class="px-4 py-1 rounded-full ${recommendation.approval_decision ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                        ${recommendation.approval_decision ? 'Approved' : 'Not Approved'}
+                    </span>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-gray-600">Confidence Score</p>
+                        <p class="text-lg font-semibold">${(safeAccess(recommendation, 'confidence_score', 0) * 100).toFixed(1)}%</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-600">Max Loan Amount</p>
+                        <p class="text-lg font-semibold">$${formatNumber(safeAccess(recommendation, 'max_loan_amount', 0))}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-600">Max Monthly Payment</p>
+                        <p class="text-lg font-semibold">$${formatNumber(safeAccess(recommendation, 'max_monthly_payment_amount', 0))}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Key Metrics Card -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold mb-4">Key Metrics</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-gray-600">Average Daily Balance Trend</p>
+                        <p class="text-lg font-semibold capitalize">${safeAccess(recommendation, 'key_metrics.average_daily_balance_trend', 'N/A')}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-600">Highest NSF Month Count</p>
+                        <p class="text-lg font-semibold">${safeAccess(recommendation, 'key_metrics.highest_nsf_month_count', 0)}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-600">Lowest Monthly Balance</p>
+                        <p class="text-lg font-semibold">$${formatNumber(safeAccess(recommendation, 'key_metrics.lowest_monthly_balance', 0))}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-600">Payment Coverage Ratio</p>
+                        <p class="text-lg font-semibold">${(safeAccess(recommendation, 'key_metrics.payment_coverage_ratio', 0)).toFixed(2)}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analysis Details Card -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold mb-4">Detailed Analysis</h3>
+                <p class="text-gray-700 mb-4">${safeAccess(recommendation, 'detailed_analysis', 'No detailed analysis available.')}</p>
+                
+                <div class="grid grid-cols-2 gap-6">
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">Risk Factors</h4>
+                        <ul class="list-disc pl-5 text-red-600">
+                            ${(safeAccess(recommendation, 'risk_factors', []))
+                                .map(factor => `<li>${factor}</li>`)
+                                .join('') || '<li>No risk factors identified</li>'}
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">Mitigating Factors</h4>
+                        <ul class="list-disc pl-5 text-green-600">
+                            ${(safeAccess(recommendation, 'mitigating_factors', []))
+                                .map(factor => `<li>${factor}</li>`)
+                                .join('') || '<li>No mitigating factors identified</li>'}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Conditions Card -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold mb-4">Conditions if Approved</h3>
+                <ul class="list-disc pl-5 text-gray-700">
+                    ${(safeAccess(recommendation, 'conditions_if_approved', []))
+                        .map(condition => `<li>${condition}</li>`)
+                        .join('') || '<li>No conditions specified</li>'}
+                </ul>
+            </div>
+        </div>
+    `;
+    financialsTab.innerHTML = content;
+}
+
+// Update Financial Summary tab with safety checks
+function updateFinancialTab(response) {
+    const financialTab = document.getElementById('financial-tab');
+    if (!financialTab) return;
+
+    const dailyBalances = safeAccess(response, 'metrics.daily_balances.daily_balances', []);
+    const monthlyBalances = safeAccess(response, 'metrics.closing_balances.monthly_closing_balances', []);
+    const monthlyFinancialsData = safeAccess(response, 'metrics.monthly_financials.monthly_data', {});
+    const statistics = safeAccess(response, 'metrics.monthly_financials.statistics', {});
+
+    // Create Daily Balance Chart
+    const chartCanvas = document.getElementById('dailyBalanceChart');
+    if (chartCanvas?.getContext && dailyBalances.length > 0) {
+        const ctx = chartCanvas.getContext('2d');
+        try {
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dailyBalances.map(item => item.date),
+                    datasets: [{
+                        label: 'Daily Balance',
+                        data: dailyBalances.map(item => item.balance),
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `Balance: $${formatNumber(context.raw || 0)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + formatNumber(value);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('Error creating chart:', error);
+            chartCanvas.parentElement.innerHTML = '<div class="p-4 text-gray-600">Error creating chart</div>';
+        }
+    }
+
+    // Update Monthly Balance Table
+    const monthlyBalanceTable = document.getElementById('monthlyBalanceTable');
+    if (monthlyBalanceTable) {
+        monthlyBalanceTable.innerHTML = `
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Closing Balance</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Verification</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        ${monthlyBalances.length > 0 ? monthlyBalances.map(balance => `
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${balance.month || 'N/A'}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">$${formatNumber(balance.balance || 0)}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${balance.verification || 'Unverified'}</td>
+                            </tr>
+                        `).join('') : `
+                            <tr>
+                                <td colspan="3" class="px-6 py-4 text-center text-gray-500">No monthly balance data available</td>
+                            </tr>
+                        `}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    // Update Monthly Cash Flow Summary
+    const monthlyCashFlow = document.getElementById('monthlyCashFlow');
+    if (monthlyCashFlow) {
+        monthlyCashFlow.innerHTML = `
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Monthly Data Table -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Expenses</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Cash Flow</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            ${Object.entries(monthlyFinancialsData).length > 0 ? 
+                                Object.entries(monthlyFinancialsData).map(([month, data]) => `
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${month}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">$${formatNumber(data.revenue || 0)}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">$${formatNumber(data.expenses || 0)}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-right ${(data.cashflow || 0) >= 0 ? 'text-green-600' : 'text-red-600'}">
+                                            $${formatNumber(data.cashflow || 0)}
+                                        </td>
+                                    </tr>
+                                `).join('') : `
+                                    <tr>
+                                        <td colspan="4" class="px-6 py-4 text-center text-gray-500">No monthly financial data available</td>
+                                    </tr>
+                            `}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Statistics Summary -->
+                <div class="bg-gray-50 rounded-lg p-6">
+                    <h4 class="text-md font-semibold text-gray-800 mb-4">Aggregate Statistics</h4>
+                    <div class="space-y-4">
+                        <div>
+                            <p class="text-sm text-gray-600">Average Monthly Revenue</p>
+                            <p class="text-lg font-semibold">$${formatNumber(safeAccess(statistics, 'revenue.average', 0))}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-600">Average Monthly Expenses</p>
+                            <p class="text-lg font-semibold">$${formatNumber(safeAccess(statistics, 'expenses.average', 0))}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-600">Average Monthly Cash Flow</p>
+                            <p class="text-lg font-semibold ${safeAccess(statistics, 'cashflow.average', 0) >= 0 ? 'text-green-600' : 'text-red-600'}">
+                                $${formatNumber(safeAccess(statistics, 'cashflow.average', 0))}
+                            </p>
+                        </div>
+                        <div class="pt-4 border-t border-gray-200">
+                            <p class="text-sm text-gray-600">Standard Deviations</p>
+                            <div class="grid grid-cols-2 gap-4 mt-2">
+                                <div>
+                                    <p class="text-xs text-gray-500">Revenue</p>
+                                    <p class="text-sm font-medium">$${formatNumber(safeAccess(statistics, 'revenue.std_deviation', 0))}</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-gray-500">Expenses</p>
+                                    <p class="text-sm font-medium">$${formatNumber(safeAccess(statistics, 'expenses.std_deviation', 0))}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
     }
 } 

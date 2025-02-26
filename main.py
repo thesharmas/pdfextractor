@@ -167,7 +167,7 @@ def underwrite():
                     "explanation": explanation,
                     "gap_details": gap_details
                 }
-            }), 400
+            })
         
         send_status("continuity", "Complete", "Statements are contiguous")
         
