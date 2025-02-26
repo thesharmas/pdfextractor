@@ -583,7 +583,7 @@ def extract_monthly_closing_balances(input_str: str = "None") -> str:
         })
 
 @tool
-def analyze_credit_decision(input_str: str) -> str:
+def analyze_credit_decision_term_loan (input_str: str) -> str:
     """Analyzes financial data to make a credit decision for a term loan. Returns JSON response."""
     try:
         prompt = """You are a **conservative commercial loan underwriter** analyzing detailed financial and bank statement data to decide whether a business qualifies for a term loan. Your objective is to produce a final JSON output **only**, following the exact structure below (no extra text or commentary). 
