@@ -129,92 +129,123 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize clear button state
     clearBtn.disabled = true;
     
-    // Handle form submission
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        // Clear previous results and status
-        resultsSection.classList.add('hidden');
-        resultsContent.innerHTML = '';
-        statusList.innerHTML = '';
-        
-        // Show loading container
-        loadingContainer.classList.remove('hidden');
-        
-        // Disable submit button
-        submitBtn.disabled = true;
-        
-        // Hide the upload section when underwriting starts
-        uploadContent.classList.add('hidden');
-        const icon = toggleBtn.querySelector('.toggle-icon');
-        icon.textContent = '▼';
-        
-        // Start listening for status updates
-        const eventSource = new EventSource('/status');
-        
-        eventSource.onmessage = function(event) {
-            const status = JSON.parse(event.data);
-            updateStatus(status);
-        };
-        
-        try {
-            // First, upload the files
-            const uploadedFiles = await uploadFiles(selectedFiles);
+    // Debug log to check if form is found
+    console.log('Form element found:', !!form);
+
+    if (form) {
+        // Handle form submission
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            console.log('Form submitted');
+
+            // Clear previous results and status
+            resultsSection.classList.add('hidden');
+            resultsContent.innerHTML = '';
             
-            // Then process them with the underwrite endpoint
-            const provider = document.getElementById('provider').value;
-            const debugMode = document.getElementById('debug-mode').checked;
-            
-            const response = await fetch('/underwrite', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    file_paths: uploadedFiles,
-                    provider: provider.toLowerCase(),
-                    debug: debugMode
-                })
-            });
-            
-            if (!response.ok) {
-                throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
+            const statusList = document.querySelector('.status-list');
+            statusList.innerHTML = ''; // Clear previous status messages
+
+            // Show loading container
+            loadingContainer.classList.remove('hidden');
+
+            // Disable submit button
+            submitBtn.disabled = true;
+
+            // Hide the upload section when underwriting starts
+            const uploadContent = document.getElementById('upload-content');
+            uploadContent.classList.add('hidden');
+            const toggleBtn = document.getElementById('toggle-upload-btn');
+            if (toggleBtn) {
+                const icon = toggleBtn.querySelector('.toggle-icon');
+                if (icon) icon.textContent = '▼';
             }
+
+            // Start listening for status updates BEFORE making the request
+            const eventSource = new EventSource('/status');
             
-            const result = await response.json();
-            
-            // Hide loading container
-            loadingContainer.classList.add('hidden');
-            
-            // Display results
-            displayResults(result);
-            
-        } catch (error) {
-            console.error('Error:', error);
-            
-            // Hide loading container
-            loadingContainer.classList.add('hidden');
-            
-            // Show error in results section
-            resultsSection.classList.remove('hidden');
-            resultsContent.innerHTML = `
-                <div class="error">
-                    <h3>Error</h3>
-                    <p>${error.message}</p>
-                </div>
-            `;
-            setTimeout(() => resultsSection.classList.add('visible'), 10);
-            
-        } finally {
-            // Re-enable submit button
-            submitBtn.disabled = false;
-            // Close the event source
-            eventSource.close();
-        }
-    });
-    
+            eventSource.onmessage = function(event) {
+                try {
+                    const status = JSON.parse(event.data);
+                    updateStatus(status);
+                    
+                    // If we receive a "complete" or "error" status, close the connection
+                    if (status.status === 'Success' || status.status === 'Error') {
+                        eventSource.close();
+                    }
+                } catch (error) {
+                    console.error('Error parsing status update:', error);
+                }
+            };
+
+            try {
+                // First, upload the files
+                const uploadedFiles = await uploadFiles(selectedFiles);
+                console.log('Files uploaded:', uploadedFiles);
+
+                // Then process them with the underwrite endpoint
+                const provider = document.getElementById('provider').value;
+                const debugMode = document.getElementById('debug').checked;
+                
+                console.log('Sending underwrite request:', {
+                    file_paths: uploadedFiles,
+                    provider: provider,
+                    debug: debugMode
+                });
+
+                const response = await fetch('/underwrite', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        file_paths: uploadedFiles,
+                        provider: provider.toLowerCase(),
+                        debug: debugMode
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                console.log('Underwrite response:', result);
+
+                // Display results
+                displayResults(result);
+
+            } catch (error) {
+                console.error('Error during underwriting:', error);
+
+                // Show error in results section
+                resultsSection.classList.remove('hidden');
+                resultsContent.innerHTML = `
+                    <div class="error bg-red-50 border border-red-200 rounded-lg p-4">
+                        <h3 class="text-red-800 font-semibold mb-2">Error</h3>
+                        <p class="text-red-600">${error.message}</p>
+                    </div>
+                `;
+
+            } finally {
+                // Re-enable submit button
+                submitBtn.disabled = false;
+                
+                // Hide loading container only after we're done with everything
+                loadingContainer.classList.add('hidden');
+                
+                // Close the event source if it hasn't been closed already
+                if (eventSource.readyState !== EventSource.CLOSED) {
+                    eventSource.close();
+                }
+            }
+        });
+    } else {
+        console.error('Upload form not found!');
+    }
+
     // Function to upload files
     async function uploadFiles(files) {
+        console.log('Uploading files:', files);
         const formData = new FormData();
         
         files.forEach(file => {
@@ -248,7 +279,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!statusItem) {
             statusItem = document.createElement('div');
             statusItem.setAttribute('data-step', status.step);
-            statusItem.className = 'flex items-center p-4 border-b border-gray-100 animate-fade-in';
+            statusItem.className = 'flex items-center p-4 bg-white rounded-lg shadow-sm border border-gray-100 animate-fade-in';
             statusList.appendChild(statusItem);
         }
         
@@ -286,6 +317,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
         `;
 
+        // Scroll to the bottom of the status list
         statusList.scrollTop = statusList.scrollHeight;
     }
 
