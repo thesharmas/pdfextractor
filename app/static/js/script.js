@@ -11,6 +11,22 @@ document.addEventListener('DOMContentLoaded', function() {
     const toggleBtn = document.getElementById('toggle-upload-btn');
     const uploadContent = document.getElementById('upload-content');
     const uploadSection = document.querySelector('.upload-section');
+    const openJsonLoaderBtn = document.getElementById('openJsonLoader');
+    const modal = document.getElementById('jsonLoaderModal');
+    const cancelBtn = document.getElementById('cancelJsonLoad');
+    const loadBtn = document.getElementById('loadJson');
+    const jsonInput = document.getElementById('jsonInput');
+    
+    console.log('Setting up JSON loader...');
+    
+    // Log if we found all elements
+    console.log('Found elements:', {
+        openJsonLoaderBtn: !!openJsonLoaderBtn,
+        modal: !!modal,
+        cancelBtn: !!cancelBtn,
+        loadBtn: !!loadBtn,
+        jsonInput: !!jsonInput
+    });
     
     // Toggle upload section
     function toggleUploadSection() {
@@ -280,6 +296,52 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize copy button if it exists
     initializeJsonCopy();
+
+    // Open modal
+    openJsonLoaderBtn.addEventListener('click', () => {
+        console.log('Opening modal');
+        modal.classList.remove('hidden');
+    });
+
+    // Close modal
+    cancelBtn.addEventListener('click', () => {
+        console.log('Canceling');
+        modal.classList.add('hidden');
+        jsonInput.value = '';
+    });
+
+    // Close modal if clicking outside
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.classList.add('hidden');
+            jsonInput.value = '';
+        }
+    });
+
+    // Load JSON
+    loadBtn.addEventListener('click', () => {
+        console.log('Load button clicked');
+        const inputValue = jsonInput.value;
+        console.log('Input value:', inputValue);
+        
+        try {
+            const jsonData = JSON.parse(inputValue);
+            console.log('Parsed JSON:', jsonData);
+            
+            // Make sure results section is visible
+            const resultsSection = document.getElementById('results-section');
+            if (resultsSection) {
+                resultsSection.classList.remove('hidden');
+            }
+            
+            displayResults(jsonData);
+            modal.classList.add('hidden');
+            jsonInput.value = '';
+        } catch (e) {
+            console.error('JSON parse error:', e);
+            alert('Invalid JSON format. Please check your input.');
+        }
+    });
 });
 
 // Define the initializeJsonCopy function
@@ -338,363 +400,37 @@ function initializeJsonCopy() {
 
 // Update displayResults function
 function displayResults(response) {
+    console.log('displayResults called with:', response);
+    
     const resultsSection = document.getElementById('results-section');
     const resultsContent = document.getElementById('results-content');
-    const statementContinuity = document.querySelector('.statement-continuity');
-    const keyMetrics = document.querySelector('.key-metrics');
-    const avgBalance = document.querySelector('.avg-balance');
-    const nsfInfo = document.querySelector('.nsf-info');
-    const closingBalance = document.querySelector('.closing-balance');
     const decisionHeader = document.querySelector('.decision-header');
     const positiveFactor = document.querySelector('.positive-factors');
     const negativeFactor = document.querySelector('.negative-factors');
     const recommendations = document.querySelector('.recommendations');
+    
+    if (!resultsSection) {
+        console.error('Results section not found!');
+        return;
+    }
+
+    // Show results section
+    resultsSection.classList.remove('hidden');
     
     // Safely access nested properties
     const recommendation = response?.credit_analysis?.loan_recommendation || {};
     const metrics = recommendation?.key_metrics || {};
     const monthlyFinancials = response?.metrics?.monthly_financials?.statistics || {};
     const nsfData = response?.metrics?.nsf_information || {};
-    
-    // Update Statement Overview
-    if (statementContinuity) {
-        statementContinuity.innerHTML = `
-            <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm h-full">
-                <div class="flex items-center gap-2 mb-4">
-                    <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-                    </svg>
-                    <h3 class="text-lg font-semibold text-gray-800">Analysis Summary</h3>
-                </div>
-                <div class="prose prose-sm max-w-none text-gray-600">
-                    ${recommendation.detailed_analysis || 'No analysis available'}
-                </div>
-            </div>
-        `;
-    }
-    
-    // Update Key Metrics
-    if (keyMetrics) {
-        keyMetrics.innerHTML = `
-            <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm h-full">
-                <div class="flex items-center gap-2 mb-4">
-                    <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-                    </svg>
-                    <h3 class="text-lg font-semibold text-gray-800">Key Metrics</h3>
-                </div>
-                <div class="grid gap-6">
-                    <div class="p-4 bg-gray-50 rounded-lg">
-                        <div class="text-sm text-gray-600 mb-1">Payment Coverage</div>
-                        <div class="text-2xl font-bold text-gray-900">
-                            ${(metrics.payment_coverage_ratio || 0).toFixed(2)}x
-                        </div>
-                    </div>
-                    
-                    <div class="p-4 bg-gray-50 rounded-lg">
-                        <div class="text-sm text-gray-600 mb-1">Balance Trend</div>
-                        <div class="text-2xl font-bold text-gray-900">
-                            ${metrics.average_daily_balance_trend || 'N/A'}
-                        </div>
-                    </div>
-                    
-                    <div class="p-4 bg-gray-50 rounded-lg">
-                        <div class="text-sm text-gray-600 mb-1">Lowest Balance</div>
-                        <div class="text-2xl font-bold text-gray-900">
-                            $${formatNumber((metrics.lowest_monthly_balance || 0).toFixed(2))}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-    
-    // Update Monthly Data
-    const monthlyData = response?.metrics?.monthly_financials?.monthly_data || {};
-    const monthlyDataHtml = `
-        <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm h-full">
-            <div class="flex items-center gap-2 mb-4">
-                <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                </svg>
-                <h3 class="text-lg font-semibold text-gray-800">Monthly Data</h3>
-            </div>
-            <div class="space-y-4">
-                ${Object.entries(monthlyData).map(([month, data]) => `
-                    <div class="bg-gray-50 rounded-lg p-4">
-                        <h5 class="font-semibold text-gray-700 mb-3">${month}</h5>
-                        <div class="space-y-2">
-                            <div class="flex justify-between items-center">
-                                <span class="text-gray-600">Revenue</span>
-                                <span class="font-medium text-gray-900">$${formatNumber(data.revenue.toFixed(2))}</span>
-                            </div>
-                            <div class="flex justify-between items-center">
-                                <span class="text-gray-600">Expenses</span>
-                                <span class="font-medium text-gray-900">$${formatNumber(data.expenses.toFixed(2))}</span>
-                            </div>
-                            <div class="flex justify-between items-center">
-                                <span class="text-gray-600">Cash Flow</span>
-                                <span class="font-medium ${data.cashflow >= 0 ? 'text-green-600' : 'text-red-600'}">
-                                    $${formatNumber(data.cashflow.toFixed(2))}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        </div>
-    `;
-    document.querySelector('.monthly-data').innerHTML = monthlyDataHtml || '<p class="text-gray-500">No monthly data available</p>';
 
-    // Update Financial Statistics
-    const avgBalanceHtml = `
-        <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm h-full">
-            <div class="flex items-center gap-2 mb-4">
-                <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-                </svg>
-                <h3 class="text-lg font-semibold text-gray-800">Financial Statistics</h3>
-            </div>
-            <div class="space-y-6">
-                <div class="bg-gray-50 rounded-lg p-4">
-                    <h4 class="font-medium text-gray-700 mb-3">Monthly Averages</h4>
-                    <div class="space-y-2">
-                        <div class="flex justify-between items-center">
-                            <span class="text-gray-600">Revenue</span>
-                            <span class="font-medium text-gray-900">$${formatNumber((monthlyFinancials?.revenue?.average || 0).toFixed(2))}</span>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-gray-600">Expenses</span>
-                            <span class="font-medium text-gray-900">$${formatNumber((monthlyFinancials?.expenses?.average || 0).toFixed(2))}</span>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-gray-600">Cash Flow</span>
-                            <span class="font-medium ${(monthlyFinancials?.cashflow?.average || 0) >= 0 ? 'text-green-600' : 'text-red-600'}">
-                                $${formatNumber((monthlyFinancials?.cashflow?.average || 0).toFixed(2))}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-                <div class="bg-gray-50 rounded-lg p-4">
-                    <h4 class="font-medium text-gray-700 mb-3">Standard Deviations</h4>
-                    <div class="space-y-2">
-                        <div class="flex justify-between items-center">
-                            <span class="text-gray-600">Revenue</span>
-                            <span class="font-medium text-gray-900">$${formatNumber((monthlyFinancials?.revenue?.std_deviation || 0).toFixed(2))}</span>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-gray-600">Expenses</span>
-                            <span class="font-medium text-gray-900">$${formatNumber((monthlyFinancials?.expenses?.std_deviation || 0).toFixed(2))}</span>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-gray-600">Cash Flow</span>
-                            <span class="font-medium text-gray-900">$${formatNumber((monthlyFinancials?.cashflow?.std_deviation || 0).toFixed(2))}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    document.querySelector('.avg-balance').innerHTML = avgBalanceHtml;
-
-    // Update NSF Information
-    const nsfHtml = `
-        <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm h-full">
-            <div class="flex items-center gap-2 mb-4">
-                <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-                <h3 class="text-lg font-semibold text-gray-800">NSF Activity</h3>
-            </div>
-            <div class="bg-gray-50 rounded-lg p-4 space-y-3">
-                <div class="flex justify-between items-center">
-                    <span class="text-gray-600">Total NSF Incidents</span>
-                    <span class="font-medium text-red-600">${nsfData.incident_count || 0}</span>
-                </div>
-                <div class="h-px bg-gray-200"></div>
-                <div class="flex justify-between items-center">
-                    <span class="text-gray-600">Total NSF Fees</span>
-                    <span class="font-medium text-red-600">$${formatNumber((nsfData.total_fees || 0).toFixed(2))}</span>
-                </div>
-                <div class="h-px bg-gray-200"></div>
-                <div class="flex justify-between items-center">
-                    <span class="text-gray-600">Highest NSF Month</span>
-                    <span class="font-medium text-gray-900">${nsfData.highest_nsf_month || 'N/A'}</span>
-                </div>
-            </div>
-        </div>
-    `;
-    document.querySelector('.nsf-info').innerHTML = nsfHtml;
-
-    // Update Monthly Closing Balances
-    const monthlyBalances = response?.metrics?.closing_balances?.monthly_closing_balances || [];
-    const closingBalanceHtml = `
-        <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm h-full">
-            <div class="flex items-center gap-2 mb-4">
-                <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z"/>
-                </svg>
-                <h3 class="text-lg font-semibold text-gray-800">Monthly Closing</h3>
-            </div>
-            ${monthlyBalances.length > 0 ? `
-                <div class="space-y-3">
-                    ${monthlyBalances.map(balance => `
-                        <div class="bg-gray-50 rounded-lg p-4">
-                            <div class="flex justify-between items-center">
-                                <span class="text-gray-600">${balance.month}</span>
-                                <div class="text-right">
-                                    <span class="block font-medium text-gray-900">$${formatNumber((balance.balance || 0).toFixed(2))}</span>
-                                    <span class="text-sm text-gray-500">${balance.verification}</span>
-                                </div>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            ` : '<p class="text-gray-500">No monthly balance data available</p>'}
-        </div>
-    `;
-    document.querySelector('.closing-balance').innerHTML = closingBalanceHtml;
-
-    // Update the daily balance chart if it exists
-    const dailyBalanceChart = document.querySelector('.daily-balance-chart');
-    if (dailyBalanceChart) {
-        const dailyBalances = response?.metrics?.daily_balances?.daily_balances || [];
-        if (dailyBalances.length > 0) {
-            dailyBalanceChart.innerHTML = `
-                <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm h-full">
-                    <div class="flex items-center gap-2 mb-4">
-                        <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
-                        </svg>
-                        <h3 class="text-lg font-semibold text-gray-800">Daily Balance Trend</h3>
-                    </div>
-                    <div class="h-[300px] relative">
-                        <canvas id="dailyBalanceCanvas"></canvas>
-                    </div>
-                    <div class="mt-4 text-sm text-gray-500 text-right">
-                        ● Direct Balance  ● Calculated Balance
-                    </div>
-                </div>
-            `;
-
-            // Prepare data for the chart
-            const dates = dailyBalances.map(item => item.date);
-            const directBalances = dailyBalances.map(item => 
-                item.balance_type === 'direct' ? item.balance : null
-            );
-            const calculatedBalances = dailyBalances.map(item => 
-                item.balance_type === 'calculated' ? item.balance : null
-            );
-
-            // Create the chart
-            const ctx = document.getElementById('dailyBalanceCanvas').getContext('2d');
-            new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: dates,
-                    datasets: [
-                        {
-                            label: 'Direct Balance',
-                            data: directBalances,
-                            borderColor: '#2563eb',
-                            backgroundColor: '#2563eb',
-                            pointBackgroundColor: '#2563eb',
-                            pointRadius: 4,
-                            pointHoverRadius: 6,
-                            spanGaps: false,
-                            segment: {
-                                borderDash: [0, 0]
-                            }
-                        },
-                        {
-                            label: 'Calculated Balance',
-                            data: calculatedBalances,
-                            borderColor: '#64748b',
-                            backgroundColor: '#64748b',
-                            pointBackgroundColor: '#64748b',
-                            pointRadius: 4,
-                            pointHoverRadius: 6,
-                            spanGaps: false,
-                            segment: {
-                                borderDash: [4, 4]
-                            }
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    interaction: {
-                        intersect: false,
-                        mode: 'index'
-                    },
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    let label = context.dataset.label || '';
-                                    if (label) {
-                                        label += ': ';
-                                    }
-                                    if (context.parsed.y !== null) {
-                                        label += new Intl.NumberFormat('en-US', {
-                                            style: 'currency',
-                                            currency: 'USD'
-                                        }).format(context.parsed.y);
-                                    }
-                                    return label;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            grid: {
-                                display: false
-                            },
-                            ticks: {
-                                maxRotation: 45,
-                                minRotation: 45
-                            }
-                        },
-                        y: {
-                            beginAtZero: false,
-                            ticks: {
-                                callback: function(value) {
-                                    return new Intl.NumberFormat('en-US', {
-                                        style: 'currency',
-                                        currency: 'USD',
-                                        maximumFractionDigits: 0
-                                    }).format(value);
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        } else {
-            dailyBalanceChart.innerHTML = `
-                <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-                    <div class="flex items-center gap-2 mb-4">
-                        <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
-                        </svg>
-                        <h3 class="text-lg font-semibold text-gray-800">Daily Balance Trend</h3>
-                    </div>
-                    <p class="text-gray-500">No daily balance data available</p>
-                </div>
-            `;
-        }
-    }
-    
     // Update Credit Decision Tab
     if (decisionHeader) {
-        // Safely check the approval decision
-        const approvalDecision = recommendation.approval_decision || '';
-        const isApproved = approvalDecision.toString().toLowerCase() === 'approved';
+        // Handle both boolean and string approval decisions
+        const approvalDecision = recommendation.approval_decision;
+        const isApproved = typeof approvalDecision === 'boolean' ? 
+            approvalDecision : 
+            approvalDecision?.toString().toLowerCase() === 'approved';
+        
         const decisionColor = isApproved ? 'green' : 'red';
         
         decisionHeader.innerHTML = `
@@ -740,96 +476,389 @@ function displayResults(response) {
                 </div>
             </div>
         `;
-    }
-    
-    // Update Factors and Conditions sections
-    const factorsSection = document.querySelector('.grid.grid-cols-1.md\\:grid-cols-2.gap-6.mb-6');
-    if (factorsSection) {
-        // Update Mitigating Factors
-        const positiveFactor = factorsSection.querySelector('.positive-factors');
-        if (positiveFactor) {
-            positiveFactor.innerHTML = `
-                <div class="h-full bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-                    <div class="flex items-center gap-2 mb-4">
-                        <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                        <h3 class="text-lg font-semibold text-gray-800">Mitigating Factors</h3>
-                    </div>
-                    <ul class="space-y-2">
-                        ${(recommendation.mitigating_factors || [])
-                            .map(factor => `
-                                <li class="flex items-start gap-2 text-gray-700">
-                                    <span class="text-green-500 mt-1">•</span>
-                                    <span>${factor}</span>
-                                </li>
-                            `).join('') || '<li class="text-gray-500">No mitigating factors identified</li>'}
-                    </ul>
-                </div>
-            `;
-        }
-
-        // Update Risk Factors
-        const negativeFactor = factorsSection.querySelector('.negative-factors');
-        if (negativeFactor) {
-            negativeFactor.innerHTML = `
-                <div class="h-full bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-                    <div class="flex items-center gap-2 mb-4">
-                        <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                        </svg>
-                        <h3 class="text-lg font-semibold text-gray-800">Risk Factors</h3>
-                    </div>
-                    <ul class="space-y-2">
-                        ${(recommendation.risk_factors || [])
-                            .map(factor => `
-                                <li class="flex items-start gap-2 text-gray-700">
-                                    <span class="text-red-500 mt-1">•</span>
-                                    <span>${factor}</span>
-                                </li>
-                            `).join('') || '<li class="text-gray-500">No risk factors identified</li>'}
-                    </ul>
-                </div>
-            `;
-        }
+    } else {
+        console.error('Decision header element not found');
     }
 
-    // Update Conditions section
-    const recommendationsSection = document.querySelector('.recommendations');
-    if (recommendationsSection) {
-        recommendationsSection.innerHTML = `
-            <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-                <div class="flex items-center gap-2 mb-4">
-                    <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-                    </svg>
-                    <h3 class="text-lg font-semibold text-gray-800">Conditions</h3>
+    // Add error handling for missing elements
+    if (!decisionHeader) console.error('Decision header element not found');
+    if (!positiveFactor) console.error('Positive factors element not found');
+    if (!negativeFactor) console.error('Negative factors element not found');
+    if (!recommendations) console.error('Recommendations element not found');
+
+    // Update Summary Tab Content
+    const summaryTabContent = document.getElementById('summary-tab');
+    if (summaryTabContent) {
+        const loanRecommendation = response?.credit_analysis?.loan_recommendation || {};
+        const approvalDecision = loanRecommendation.approval_decision;
+        
+        summaryTabContent.innerHTML = `
+            <!-- Approval Status Pill -->
+            <div class="mb-6 flex justify-center">
+                <div class="inline-flex items-center ${approvalDecision ? 'bg-green-100' : 'bg-red-100'} px-6 py-2 rounded-full">
+                    <span class="mr-2">
+                        ${approvalDecision ? 
+                            `<svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                            </svg>` :
+                            `<svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>`
+                        }
+                    </span>
+                    <span class="${approvalDecision ? 'text-green-800' : 'text-red-800'} font-semibold text-lg">
+                        Loan ${approvalDecision ? 'Approved' : 'Denied'}
+                    </span>
+                    <span class="ml-2 ${approvalDecision ? 'text-green-600' : 'text-red-600'} text-sm">
+                        (${(loanRecommendation.confidence_score * 100).toFixed(1)}% confidence)
+                    </span>
                 </div>
-                <ul class="space-y-3">
-                    ${(recommendation.conditions_if_approved || [])
-                        .map(condition => `
-                            <li class="flex items-start gap-3 p-3 bg-blue-50 rounded-lg text-gray-700">
-                                <span class="text-blue-500 mt-1">•</span>
-                                <span>${condition}</span>
-                            </li>
-                        `).join('') || '<li class="text-gray-500">No conditions specified</li>'}
-                </ul>
+            </div>
+
+            <!-- Statement Overview Card -->
+            <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">
+                    <span class="inline-block mr-2">
+                        <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                    </span>
+                    Statement Overview
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <p class="text-sm text-gray-600 mb-2">Period Covered</p>
+                        <p class="font-semibold text-gray-800">
+                            ${response?.metrics?.statement_continuity?.statement_periods?.[0]?.start_date || 'N/A'} to 
+                            ${response?.metrics?.statement_continuity?.statement_periods?.slice(-1)[0]?.end_date || 'N/A'}
+                        </p>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <p class="text-sm text-gray-600 mb-2">Statement Status</p>
+                        <p class="font-semibold text-gray-800">
+                            ${response?.metrics?.statement_continuity?.analysis?.is_contiguous ? 'Complete' : 'Incomplete'}
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Key Metrics Card -->
+            <div class="bg-white rounded-xl shadow-sm p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">
+                    <span class="inline-block mr-2">
+                        <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                    </span>
+                    Key Metrics
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- Average Monthly Revenue -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <p class="text-sm text-gray-600 mb-2">Avg Monthly Revenue</p>
+                        <p class="text-xl font-bold text-gray-800">
+                            ${formatNumber(monthlyFinancials?.revenue?.average || 0)}
+                        </p>
+                    </div>
+                    <!-- Average Monthly Expenses -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <p class="text-sm text-gray-600 mb-2">Avg Monthly Expenses</p>
+                        <p class="text-xl font-bold text-gray-800">
+                            ${formatNumber(monthlyFinancials?.expenses?.average || 0)}
+                        </p>
+                    </div>
+                    <!-- NSF Incidents -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <p class="text-sm text-gray-600 mb-2">NSF Incidents</p>
+                        <p class="text-xl font-bold text-gray-800">
+                            ${nsfData?.incident_count || 0}
+                        </p>
+                    </div>
+                    <!-- Lowest Monthly Balance -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <p class="text-sm text-gray-600 mb-2">Lowest Monthly Balance</p>
+                        <p class="text-xl font-bold text-gray-800">
+                            ${formatNumber(metrics?.lowest_monthly_balance || 0)}
+                        </p>
+                    </div>
+                </div>
             </div>
         `;
     }
-    
-    // Update Raw JSON Tab
+
+    // Update Raw JSON tab
     if (resultsContent) {
-        resultsContent.innerHTML = `<pre>${JSON.stringify(response, null, 2)}</pre>`;
+        resultsContent.textContent = JSON.stringify(response, null, 2);
     }
-    
-    // Show results section
-    document.getElementById('results-section').classList.remove('hidden');
-    
-    // Initialize copy functionality
-    initializeJsonCopy();
-    
-    // Manually trigger click on summary tab
+
+    // Initialize tabs if not already done
+    initializeTabs();
+
+    // In the displayResults function, update the financial analysis section
+    const financialsTab = document.getElementById('financials-tab');
+    if (financialsTab) {
+        const loanRecommendation = response.credit_analysis?.loan_recommendation;
+        if (loanRecommendation) {
+            const content = `
+                <div class="space-y-4">
+                    <!-- Loan Decision Card -->
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-semibold">Loan Decision</h3>
+                            <span class="px-4 py-1 rounded-full ${loanRecommendation.approval_decision ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                ${loanRecommendation.approval_decision ? 'Approved' : 'Not Approved'}
+                            </span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <p class="text-gray-600">Confidence Score</p>
+                                <p class="text-lg font-semibold">${(loanRecommendation.confidence_score * 100).toFixed(1)}%</p>
+                            </div>
+                            <div>
+                                <p class="text-gray-600">Max Loan Amount</p>
+                                <p class="text-lg font-semibold">$${formatNumber(loanRecommendation.max_loan_amount)}</p>
+                            </div>
+                            <div>
+                                <p class="text-gray-600">Max Monthly Payment</p>
+                                <p class="text-lg font-semibold">$${formatNumber(loanRecommendation.max_monthly_payment_amount)}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Key Metrics Card -->
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h3 class="text-lg font-semibold mb-4">Key Metrics</h3>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <p class="text-gray-600">Average Daily Balance Trend</p>
+                                <p class="text-lg font-semibold capitalize">${loanRecommendation.key_metrics.average_daily_balance_trend}</p>
+                            </div>
+                            <div>
+                                <p class="text-gray-600">Highest NSF Month Count</p>
+                                <p class="text-lg font-semibold">${loanRecommendation.key_metrics.highest_nsf_month_count}</p>
+                            </div>
+                            <div>
+                                <p class="text-gray-600">Lowest Monthly Balance</p>
+                                <p class="text-lg font-semibold">$${formatNumber(loanRecommendation.key_metrics.lowest_monthly_balance)}</p>
+                            </div>
+                            <div>
+                                <p class="text-gray-600">Payment Coverage Ratio</p>
+                                <p class="text-lg font-semibold">${loanRecommendation.key_metrics.payment_coverage_ratio.toFixed(2)}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Analysis Details Card -->
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h3 class="text-lg font-semibold mb-4">Detailed Analysis</h3>
+                        <p class="text-gray-700 mb-4">${loanRecommendation.detailed_analysis}</p>
+                        
+                        <div class="grid grid-cols-2 gap-6">
+                            <div>
+                                <h4 class="font-semibold text-gray-700 mb-2">Risk Factors</h4>
+                                <ul class="list-disc pl-5 text-red-600">
+                                    ${loanRecommendation.risk_factors.map(factor => `<li>${factor}</li>`).join('')}
+                                </ul>
+                            </div>
+                            <div>
+                                <h4 class="font-semibold text-gray-700 mb-2">Mitigating Factors</h4>
+                                <ul class="list-disc pl-5 text-green-600">
+                                    ${loanRecommendation.mitigating_factors.map(factor => `<li>${factor}</li>`).join('')}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Conditions Card -->
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h3 class="text-lg font-semibold mb-4">Conditions if Approved</h3>
+                        <ul class="list-disc pl-5 text-gray-700">
+                            ${loanRecommendation.conditions_if_approved.map(condition => `<li>${condition}</li>`).join('')}
+                        </ul>
+                    </div>
+                </div>
+            `;
+            financialsTab.innerHTML = content;
+        } else {
+            financialsTab.innerHTML = '<div class="p-4 text-gray-600">No financial analysis data available.</div>';
+        }
+    }
+
+    // In the displayResults function, add the following section to handle the Financial Summary tab
+    const financialTab = document.getElementById('financial-tab');
+    if (financialTab) {
+        // Get the data
+        const dailyBalances = response.metrics?.daily_balances?.daily_balances || [];
+        const monthlyBalances = response.metrics?.closing_balances?.monthly_closing_balances || [];
+        const monthlyFinancials = response.metrics?.monthly_financials?.monthly_data || {};
+        const statistics = response.metrics?.monthly_financials?.statistics || {};
+
+        // Create Daily Balance Chart
+        const ctx = document.getElementById('dailyBalanceChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: dailyBalances.map(item => item.date),
+                datasets: [{
+                    label: 'Daily Balance',
+                    data: dailyBalances.map(item => item.balance),
+                    borderColor: 'rgb(59, 130, 246)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `Balance: $${formatNumber(context.raw)}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '$' + formatNumber(value);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Populate Monthly Balance Table
+        const monthlyBalanceTable = document.getElementById('monthlyBalanceTable');
+        monthlyBalanceTable.innerHTML = `
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Closing Balance</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Verification</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        ${monthlyBalances.map(balance => `
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${balance.month}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">$${formatNumber(balance.balance)}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${balance.verification}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        // Populate Monthly Cash Flow Summary
+        const monthlyCashFlow = document.getElementById('monthlyCashFlow');
+        monthlyCashFlow.innerHTML = `
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Monthly Data Table -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Expenses</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Cash Flow</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            ${Object.entries(monthlyFinancials).map(([month, data]) => `
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${month}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">$${formatNumber(data.revenue)}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">$${formatNumber(data.expenses)}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-right ${data.cashflow >= 0 ? 'text-green-600' : 'text-red-600'}">
+                                        $${formatNumber(data.cashflow)}
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Statistics Summary -->
+                <div class="bg-gray-50 rounded-lg p-6">
+                    <h4 class="text-md font-semibold text-gray-800 mb-4">Aggregate Statistics</h4>
+                    <div class="space-y-4">
+                        <div>
+                            <p class="text-sm text-gray-600">Average Monthly Revenue</p>
+                            <p class="text-lg font-semibold">$${formatNumber(statistics.revenue.average)}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-600">Average Monthly Expenses</p>
+                            <p class="text-lg font-semibold">$${formatNumber(statistics.expenses.average)}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-600">Average Monthly Cash Flow</p>
+                            <p class="text-lg font-semibold ${statistics.cashflow.average >= 0 ? 'text-green-600' : 'text-red-600'}">
+                                $${formatNumber(statistics.cashflow.average)}
+                            </p>
+                        </div>
+                        <div class="pt-4 border-t border-gray-200">
+                            <p class="text-sm text-gray-600">Standard Deviations</p>
+                            <div class="grid grid-cols-2 gap-4 mt-2">
+                                <div>
+                                    <p class="text-xs text-gray-500">Revenue</p>
+                                    <p class="text-sm font-medium">$${formatNumber(statistics.revenue.std_deviation)}</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-gray-500">Expenses</p>
+                                    <p class="text-sm font-medium">$${formatNumber(statistics.expenses.std_deviation)}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+}
+
+// Helper function for number formatting
+function formatNumber(number) {
+    return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(number);
+}
+
+// Tab initialization function
+function initializeTabs() {
+    const tabs = document.querySelectorAll('.tab-btn');
+    const tabPanes = document.querySelectorAll('.tab-pane');
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            // Remove active class from all tabs
+            tabs.forEach(t => t.classList.remove('active'));
+            // Add active class to clicked tab
+            tab.classList.add('active');
+            
+            // Hide all tab panes
+            tabPanes.forEach(pane => pane.classList.add('hidden'));
+            // Show the selected tab pane
+            const targetPane = document.getElementById(`${tab.dataset.tab}-tab`);
+            if (targetPane) {
+                targetPane.classList.remove('hidden');
+            }
+        });
+    });
+
+    // Show summary tab by default
     const summaryTab = document.querySelector('[data-tab="summary"]');
     if (summaryTab) {
         summaryTab.click();

@@ -239,7 +239,7 @@ def underwrite():
             }
         
         send_status("complete", "Success", "All analyses complete")
-        logger.info(f"Master response: {master_response}")
+        logger.info(f"Master response: {jsonify(master_response)}")
         return jsonify(master_response)
 
     except Exception as e:
