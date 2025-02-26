@@ -583,7 +583,7 @@ def extract_monthly_closing_balances(input_str: str = "None") -> str:
         })
 
 @tool
-def analyze_credit_decision_term_loan (input_str: str) -> str:
+def analyze_credit_decision_term_loan(metrics_data, debug=False):
     """Analyzes financial data to make a credit decision for a term loan. Returns JSON response."""
     try:
         prompt = """You are a **conservative commercial loan underwriter** analyzing detailed financial and bank statement data to decide whether a business qualifies for a term loan. Your objective is to produce a final JSON output **only**, following the exact structure below (no extra text or commentary). 
@@ -698,10 +698,24 @@ Return ONLY a valid JSON object in this exact format, with no additional text:
         logger.info("🔄 Calling LLM for credit analysis")
         response = _llm.get_response(prompt)
         
+        # Add graceful handling for empty LLM response
         if not response or not response.strip():
-            logger.error("Received empty response from LLM")
-            raise ValueError("Empty response received from LLM")
-        
+            logger.warning("Received empty response from LLM, returning default analysis")
+            return {
+                "credit_analysis": {
+                    "loan_recommendation": {
+                        "approval_decision": "PENDING",
+                        "confidence_score": 0,
+                        "max_loan_amount": 0,
+                        "max_monthly_payment_amount": 0,
+                        "detailed_analysis": "Unable to generate analysis at this time. Please try again.",
+                        "mitigating_factors": [],
+                        "risk_factors": ["Analysis temporarily unavailable"],
+                        "conditions_if_approved": []
+                    }
+                }
+            }
+
         logger.debug(f"Raw response length: {len(response)}")
         logger.debug("First 100 chars of raw response:")
         logger.debug(response[:100])
@@ -751,63 +765,52 @@ Return ONLY a valid JSON object in this exact format, with no additional text:
             logger.error(f"❌ JSON parsing error: {str(e)}")
             logger.error(f"Failed to parse response: {cleaned_response}")
             return json.dumps({
-                "loan_recommendation": {
-                    "approval_decision": False,
-                    "confidence_score": 0.0,
-                    "max_monthly_payment_amount": 0.0,
-                    "max_loan_amount": 0.0,
-                    "key_metrics": {
-                        "payment_coverage_ratio": 0.0,
-                        "average_daily_balance_trend": "unknown",
-                        "lowest_monthly_balance": 0.0,
-                        "highest_nsf_month_count": 0
-                    },
-                    "risk_factors": ["Failed to parse credit analysis response"],
-                    "mitigating_factors": [],
-                    "detailed_analysis": f"Error: Invalid JSON format - {str(e)}",
-                    "conditions_if_approved": []
+                "credit_analysis": {
+                    "loan_recommendation": {
+                        "approval_decision": "ERROR",
+                        "confidence_score": 0,
+                        "max_loan_amount": 0,
+                        "max_monthly_payment_amount": 0,
+                        "detailed_analysis": f"An error occurred during analysis: {str(e)}",
+                        "mitigating_factors": [],
+                        "risk_factors": ["Analysis error occurred"],
+                        "conditions_if_approved": []
+                    }
                 }
             })
             
         except ValueError as e:
             logger.error(f"❌ Validation error: {str(e)}")
             return json.dumps({
-                "loan_recommendation": {
-                    "approval_decision": False,
-                    "confidence_score": 0.0,
-                    "max_monthly_payment_amount": 0.0,
-                    "max_loan_amount": 0.0,
-                    "key_metrics": {
-                        "payment_coverage_ratio": 0.0,
-                        "average_daily_balance_trend": "unknown",
-                        "lowest_monthly_balance": 0.0,
-                        "highest_nsf_month_count": 0
-                    },
-                    "risk_factors": ["Failed to validate credit analysis response"],
-                    "mitigating_factors": [],
-                    "detailed_analysis": f"Error: {str(e)}",
-                    "conditions_if_approved": []
+                "credit_analysis": {
+                    "loan_recommendation": {
+                        "approval_decision": "ERROR",
+                        "confidence_score": 0,
+                        "max_loan_amount": 0,
+                        "max_monthly_payment_amount": 0,
+                        "detailed_analysis": f"An error occurred during analysis: {str(e)}",
+                        "mitigating_factors": [],
+                        "risk_factors": ["Analysis error occurred"],
+                        "conditions_if_approved": []
+                    }
                 }
             })
 
     except Exception as e:
         logger.error(f"❌ Error in analyze_credit_decision: {str(e)}")
-        logger.error(f"Full traceback:\n{traceback.format_exc()}")
-        return json.dumps({
-            "loan_recommendation": {
-                "approval_decision": False,
-                "confidence_score": 0.0,
-                "max_monthly_payment_amount": 0.0,
-                "max_loan_amount": 0.0,
-                "key_metrics": {
-                    "payment_coverage_ratio": 0.0,
-                    "average_daily_balance_trend": "unknown",
-                    "lowest_monthly_balance": 0.0,
-                    "highest_nsf_month_count": 0
-                },
-                "risk_factors": ["System error during credit analysis"],
-                "mitigating_factors": [],
-                "detailed_analysis": f"Error: {str(e)}",
-                "conditions_if_approved": []
+        logger.error("Full traceback:", exc_info=True)
+        # Return a structured response instead of raising an error
+        return {
+            "credit_analysis": {
+                "loan_recommendation": {
+                    "approval_decision": "ERROR",
+                    "confidence_score": 0,
+                    "max_loan_amount": 0,
+                    "max_monthly_payment_amount": 0,
+                    "detailed_analysis": f"An error occurred during analysis: {str(e)}",
+                    "mitigating_factors": [],
+                    "risk_factors": ["Analysis error occurred"],
+                    "conditions_if_approved": []
+                }
             }
-        }) 
+        } 
