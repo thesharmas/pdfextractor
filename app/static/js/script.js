@@ -220,54 +220,69 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Function to update status display
     function updateStatus(status) {
-        const statusItem = document.createElement('div');
-        statusItem.className = `status-item ${status.status.toLowerCase()}`;
+        const statusList = document.querySelector('.status-list');
+        if (!statusList) return;
+
+        // Try to find existing status item for this step
+        let statusItem = Array.from(statusList.children).find(
+            item => item.getAttribute('data-step') === status.step
+        );
+        
+        // If no existing item, create new one
+        if (!statusItem) {
+            statusItem = document.createElement('div');
+            statusItem.setAttribute('data-step', status.step);
+            statusItem.className = 'flex items-center p-4 border-b border-gray-100 animate-fade-in';
+            statusList.appendChild(statusItem);
+        }
+        
+        // Determine status color and icon
+        let statusColor = 'blue';
+        let icon = '';
+        
+        switch(status.status.toLowerCase()) {
+            case 'complete':
+                statusColor = 'green';
+                icon = `<svg class="w-5 h-5 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>`;
+                break;
+            case 'error':
+                statusColor = 'red';
+                icon = `<svg class="w-5 h-5 text-red-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>`;
+                break;
+            default:
+                icon = `<svg class="w-5 h-5 text-blue-500 mr-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>`;
+        }
         
         statusItem.innerHTML = `
-            <span class="status-step">${status.step}</span>
-            <span class="status-message">${status.details || status.status}</span>
+            ${icon}
+            <div class="flex-1">
+                <div class="flex items-center justify-between">
+                    <span class="font-medium text-gray-800">${status.step}</span>
+                    <span class="text-sm text-${statusColor}-600 font-medium">${status.status}</span>
+                </div>
+                ${status.details ? `<p class="text-sm text-gray-600 mt-1">${status.details}</p>` : ''}
+            </div>
         `;
-        
-        statusList.appendChild(statusItem);
+
         statusList.scrollTop = statusList.scrollHeight;
     }
+
+    // Add tab functionality
+    document.querySelectorAll('.tab-btn').forEach(button => {
+        button.addEventListener('click', handleTabClick);
+    });
+
+    // Initialize copy button if it exists
+    initializeJsonCopy();
 });
 
-// Add this function to handle tab switching
-function initializeTabs() {
-    const tabButtons = document.querySelectorAll('.tab-btn');
-    
-    tabButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            // Remove active class from all buttons
-            tabButtons.forEach(btn => {
-                btn.classList.remove('active');
-                btn.classList.remove('text-blue-600');
-                btn.classList.remove('border-b-2');
-                btn.classList.remove('border-blue-600');
-                btn.classList.add('text-gray-500');
-            });
-            
-            // Add active class to clicked button
-            button.classList.add('active');
-            button.classList.add('text-blue-600');
-            button.classList.add('border-b-2');
-            button.classList.add('border-blue-600');
-            button.classList.remove('text-gray-500');
-            
-            // Hide all tab panes
-            document.querySelectorAll('.tab-pane').forEach(pane => {
-                pane.classList.add('hidden');
-            });
-            
-            // Show the selected tab pane
-            const tabId = button.getAttribute('data-tab');
-            document.getElementById(`${tabId}-tab`).classList.remove('hidden');
-        });
-    });
-}
-
-// Add this function to handle copying JSON to clipboard
+// Define the initializeJsonCopy function
 function initializeJsonCopy() {
     const copyButton = document.getElementById('copy-json');
     if (!copyButton) return;
@@ -321,7 +336,7 @@ function initializeJsonCopy() {
     });
 }
 
-// Update the displayResults function to initialize tabs after displaying results
+// Update displayResults function
 function displayResults(response) {
     const resultsSection = document.getElementById('results-section');
     const resultsContent = document.getElementById('results-content');
@@ -505,51 +520,129 @@ function displayResults(response) {
     
     // Update Credit Decision Tab
     if (decisionHeader) {
+        // Safely check the approval decision
+        const approvalDecision = recommendation.approval_decision || '';
+        const isApproved = approvalDecision.toString().toLowerCase() === 'approved';
+        const decisionColor = isApproved ? 'green' : 'red';
+        
         decisionHeader.innerHTML = `
-            <div class="decision ${recommendation.approval_decision ? 'approve' : 'decline'}">
-                ${recommendation.approval_decision ? 'APPROVED' : 'DECLINED'}
-            </div>
-            <div class="confidence">
-                Confidence Score: ${((recommendation.confidence_score || 0) * 100).toFixed(1)}%
-            </div>
-            <div class="decision-amount">
-                Maximum Loan Amount: $${formatNumber((recommendation.max_loan_amount || 0).toFixed(2))}
-                <br>
-                Monthly Payment: $${formatNumber((recommendation.max_monthly_payment_amount || 0).toFixed(2))}
+            <div class="flex flex-col md:flex-row gap-6 items-stretch">
+                <!-- Decision Status Card -->
+                <div class="flex-1 bg-${decisionColor}-50 border-2 border-${decisionColor}-500 rounded-xl p-6 text-center">
+                    <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-${decisionColor}-100 mb-4">
+                        ${isApproved ? 
+                            `<svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                            </svg>` :
+                            `<svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>`
+                        }
+                    </div>
+                    <h3 class="text-2xl font-bold text-${decisionColor}-700 mb-2">
+                        ${approvalDecision.toString().toUpperCase()}
+                    </h3>
+                    <div class="text-${decisionColor}-600 font-medium">
+                        Confidence Score: ${((recommendation.confidence_score || 0) * 100).toFixed(1)}%
+                    </div>
+                </div>
+
+                <!-- Loan Details Card -->
+                <div class="flex-1 bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+                    <h4 class="text-lg font-semibold text-gray-800 mb-4">Loan Parameters</h4>
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">Maximum Loan Amount</span>
+                            <span class="text-xl font-bold text-gray-800">
+                                $${formatNumber((recommendation.max_loan_amount || 0).toFixed(2))}
+                            </span>
+                        </div>
+                        <div class="h-px bg-gray-200"></div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">Monthly Payment</span>
+                            <span class="text-xl font-bold text-gray-800">
+                                $${formatNumber((recommendation.max_monthly_payment_amount || 0).toFixed(2))}
+                            </span>
+                        </div>
+                    </div>
+                </div>
             </div>
         `;
     }
     
-    if (positiveFactor) {
-        positiveFactor.innerHTML = `
-            <h3>Mitigating Factors</h3>
-            <ul class="factor-list">
-                ${(recommendation.mitigating_factors || [])
-                    .map(factor => `<li>${factor}</li>`)
-                    .join('') || '<li>No mitigating factors identified</li>'}
-            </ul>
-        `;
+    // Update Factors and Conditions sections
+    const factorsSection = document.querySelector('.grid.grid-cols-1.md\\:grid-cols-2.gap-6.mb-6');
+    if (factorsSection) {
+        // Update Mitigating Factors
+        const positiveFactor = factorsSection.querySelector('.positive-factors');
+        if (positiveFactor) {
+            positiveFactor.innerHTML = `
+                <div class="h-full bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+                    <div class="flex items-center gap-2 mb-4">
+                        <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <h3 class="text-lg font-semibold text-gray-800">Mitigating Factors</h3>
+                    </div>
+                    <ul class="space-y-2">
+                        ${(recommendation.mitigating_factors || [])
+                            .map(factor => `
+                                <li class="flex items-start gap-2 text-gray-700">
+                                    <span class="text-green-500 mt-1">•</span>
+                                    <span>${factor}</span>
+                                </li>
+                            `).join('') || '<li class="text-gray-500">No mitigating factors identified</li>'}
+                    </ul>
+                </div>
+            `;
+        }
+
+        // Update Risk Factors
+        const negativeFactor = factorsSection.querySelector('.negative-factors');
+        if (negativeFactor) {
+            negativeFactor.innerHTML = `
+                <div class="h-full bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+                    <div class="flex items-center gap-2 mb-4">
+                        <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                        </svg>
+                        <h3 class="text-lg font-semibold text-gray-800">Risk Factors</h3>
+                    </div>
+                    <ul class="space-y-2">
+                        ${(recommendation.risk_factors || [])
+                            .map(factor => `
+                                <li class="flex items-start gap-2 text-gray-700">
+                                    <span class="text-red-500 mt-1">•</span>
+                                    <span>${factor}</span>
+                                </li>
+                            `).join('') || '<li class="text-gray-500">No risk factors identified</li>'}
+                    </ul>
+                </div>
+            `;
+        }
     }
-    
-    if (negativeFactor) {
-        negativeFactor.innerHTML = `
-            <h3>Risk Factors</h3>
-            <ul class="factor-list">
-                ${(recommendation.risk_factors || [])
-                    .map(factor => `<li>${factor}</li>`)
-                    .join('') || '<li>No risk factors identified</li>'}
-            </ul>
-        `;
-    }
-    
-    if (recommendations) {
-        recommendations.innerHTML = `
-            <h3>Conditions</h3>
-            <ul class="recommendation-list">
-                ${(recommendation.conditions_if_approved || [])
-                    .map(condition => `<li>${condition}</li>`)
-                    .join('') || '<li>No conditions specified</li>'}
-            </ul>
+
+    // Update Conditions section
+    const recommendationsSection = document.querySelector('.recommendations');
+    if (recommendationsSection) {
+        recommendationsSection.innerHTML = `
+            <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+                <div class="flex items-center gap-2 mb-4">
+                    <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                    <h3 class="text-lg font-semibold text-gray-800">Conditions</h3>
+                </div>
+                <ul class="space-y-3">
+                    ${(recommendation.conditions_if_approved || [])
+                        .map(condition => `
+                            <li class="flex items-start gap-3 p-3 bg-blue-50 rounded-lg text-gray-700">
+                                <span class="text-blue-500 mt-1">•</span>
+                                <span>${condition}</span>
+                            </li>
+                        `).join('') || '<li class="text-gray-500">No conditions specified</li>'}
+                </ul>
+            </div>
         `;
     }
     
@@ -558,12 +651,13 @@ function displayResults(response) {
         resultsContent.innerHTML = `<pre>${JSON.stringify(response, null, 2)}</pre>`;
     }
     
-    // Show results section and initialize tabs
+    // Show results section
     document.getElementById('results-section').classList.remove('hidden');
-    initializeTabs();
+    
+    // Initialize copy functionality
     initializeJsonCopy();
     
-    // Set Summary tab as active by default
+    // Manually trigger click on summary tab
     const summaryTab = document.querySelector('[data-tab="summary"]');
     if (summaryTab) {
         summaryTab.click();
@@ -575,27 +669,80 @@ function formatNumber(num) {
     return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
-// Tab functionality
-document.querySelectorAll('.tab-btn').forEach(button => {
-    button.addEventListener('click', () => {
-        // Remove active class from all buttons and panes
-        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-        document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
-        
-        // Add active class to clicked button and corresponding pane
-        button.classList.add('active');
-        const tabId = button.getAttribute('data-tab');
-        document.getElementById(`${tabId}-tab`).classList.add('active');
-    });
+// Add this CSS to your HTML file or update the existing loading container styles
+document.addEventListener('DOMContentLoaded', function() {
+    // ... existing code ...
+
+    // Update loading container styles
+    const loadingContainer = document.querySelector('.loading-container');
+    loadingContainer.className = 'loading-container hidden bg-white rounded-lg shadow-md p-6 mb-8 max-w-2xl mx-auto';
+    
+    // Update status list styles
+    const statusList = document.querySelector('.status-list');
+    statusList.className = 'status-list space-y-2 mt-4 max-h-60 overflow-y-auto';
+    
+    // Add loading text styles
+    const loadingText = document.getElementById('loading-text');
+    loadingText.className = 'text-xl font-semibold text-gray-800 mb-4';
 });
 
-function updateTabVisibility() {
-    const activeTab = document.querySelector('.tab-btn.active');
-    if (activeTab) {
-        const targetId = activeTab.getAttribute('data-tab');
-        document.querySelectorAll('.tab-pane').forEach(pane => {
-            pane.classList.add('hidden');
-        });
-        document.getElementById(`${targetId}-tab`).classList.remove('hidden');
+// Add this to your existing styles or in a <style> tag in your HTML
+const styleSheet = document.createElement('style');
+styleSheet.textContent = `
+    @keyframes fade-in {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .animate-fade-in {
+        animation: fade-in 0.3s ease-out forwards;
+    }
+    
+    .status-list::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    .status-list::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 3px;
+    }
+    
+    .status-list::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 3px;
+    }
+    
+    .status-list::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+    }
+`;
+document.head.appendChild(styleSheet);
+
+// Add this function to handle tab clicks
+function handleTabClick(e) {
+    // Get all tab buttons and content panes
+    const tabs = document.querySelectorAll('.tab-btn');
+    const panes = document.querySelectorAll('.tab-pane');
+    
+    // Remove active classes from all tabs
+    tabs.forEach(tab => {
+        tab.classList.remove('active', 'text-blue-600', 'border-b-2', 'border-blue-600');
+        tab.classList.add('text-gray-500');
+    });
+    
+    // Hide all panes
+    panes.forEach(pane => {
+        pane.classList.add('hidden');
+    });
+    
+    // Add active classes to clicked tab
+    e.target.classList.add('active', 'text-blue-600', 'border-b-2', 'border-blue-600');
+    e.target.classList.remove('text-gray-500');
+    
+    // Show corresponding pane
+    const tabId = e.target.getAttribute('data-tab');
+    const pane = document.getElementById(`${tabId}-tab`);
+    if (pane) {
+        pane.classList.remove('hidden');
     }
 } 
