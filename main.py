@@ -238,7 +238,11 @@ def underwrite():
             }
         
         send_status("complete", "Success", "All analyses complete")
-        logger.info(f"Master response: {jsonify(master_response)}")
+        # Log the formatted JSON response
+        logger.info("Master response:")
+        logger.info("-" * 50)
+        logger.info(json.dumps(master_response, indent=2))
+        logger.info("-" * 50)
         return jsonify(master_response)
 
     except Exception as e:
