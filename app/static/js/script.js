@@ -449,11 +449,11 @@ function displayResults(response) {
     // Show results section
     resultsSection.classList.remove('hidden');
     
-    // Safely access nested properties
+    // Change this line to correctly access the nested loan recommendation
     const recommendation = response?.credit_analysis?.loan_recommendation || {};
-    const metrics = recommendation?.key_metrics || {};
-    const monthlyFinancials = response?.metrics?.monthly_financials?.statistics || {};
-    const nsfData = response?.metrics?.nsf_information || {};
+    const metrics = response?.metrics || {};
+    const monthlyFinancials = metrics?.monthly_financials?.statistics || {};
+    const nsfData = metrics?.nsf_information || {};
 
     // Update Credit Decision Tab
     if (decisionHeader) {
