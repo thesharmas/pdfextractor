@@ -216,24 +216,23 @@ def underwrite():
         
         # Switch to reasoning LLM for credit analysis
         try:
+            # Use the same provider as selected in the UI
+            send_status("llm_setup", "Processing", f"Initializing Reasoning LLM with {provider}")
             reasoning_llm = LLMFactory.create_llm(
-                provider=LLMProvider.OPENAI,
+                provider=provider,  # Use the same provider from UI
                 model_type=ModelType.REASONING
             )
-            send_status("llm_setup", "Processing", f"Initializing Reasoning LLM")
             set_llm(reasoning_llm)
             reasoning_llm.add_json(master_response)
             send_status("credit_analysis", "Processing", "Performing final credit analysis")
             
             credit_analysis = analyze_credit_decision_term_loan("None")
-            # The credit_analysis already contains a "credit_analysis" key, so we should merge it
             master_response.update(credit_analysis)
             send_status("credit_analysis", "Complete", "Credit analysis complete")
             
         except Exception as e:
             logger.error(f"Error during credit analysis: {str(e)}")
             send_status("credit_analysis", "Error", f"Credit analysis failed: {str(e)}")
-            # Continue without credit analysis
             master_response["credit_analysis"] = {
                 "error": f"Credit analysis failed: {str(e)}"
             }
