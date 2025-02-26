@@ -7,114 +7,177 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['Fira Code', 'monospace'],
+                    },
+                }
+            }
+        }
+    </script>
 </head>
-<body>
-    <div class="container">
-        <h1>AI Credit Risk Underwriter Agent</h1>
-        <div class="upload-section">
-            <div class="section-header">
-                <h2>Upload Bank Statements</h2>
-                <button type="button" class="toggle-section-btn" id="toggle-upload-btn">
-                    <span class="toggle-icon">▼</span>
+<body class="bg-gray-50">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <h1 class="text-3xl font-bold text-gray-900 mb-8 text-center">AI Credit Risk Underwriter Agent</h1>
+        
+        <!-- Upload Section -->
+        <div class="upload-section mb-8">
+            <div class="section-header flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold text-gray-800">Upload Bank Statements</h2>
+                <button type="button" class="toggle-section-btn text-gray-500 hover:text-gray-700 focus:outline-none" id="toggle-upload-btn">
+                    <span class="toggle-icon text-xl">▼</span>
                 </button>
             </div>
-            <div class="upload-content" id="upload-content">
+            
+            <div class="upload-content bg-white rounded-lg shadow-md p-6" id="upload-content">
                 <form id="upload-form">
-                    <div class="file-input-container">
-                        <input type="file" id="pdf-files" name="pdf-files" multiple accept=".pdf">
-                        <label for="pdf-files" class="file-input-label">Choose PDF Files</label>
-                        <button type="button" id="clear-files" class="clear-files-btn">Clear Files</button>
-                        <div id="file-names" class="file-names"></div>
-                    </div>
-                    
-                    <div class="options-section">
-                        <h3>Options</h3>
-                        <div class="option-group">
-                            <label for="provider">LLM Provider:</label>
-                            <select id="provider" name="provider">
-                                <option value="anthropic">Anthropic</option>
-                                <option value="openai" selected>OpenAI</option>
-                                <option value="google">Google</option>
-                            </select>
-                        </div>
+                    <div class="file-input-container mb-6">
+                        <input type="file" id="pdf-files" name="pdf-files" multiple accept=".pdf" class="hidden">
+                        <label for="pdf-files" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer transition-colors">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                            </svg>
+                            Choose PDF Files
+                        </label>
                         
-                        <div class="option-group">
-                            <label for="debug-mode">
-                                <input type="checkbox" id="debug-mode" name="debug-mode">
-                                Debug Mode
-                            </label>
+                        <button type="button" id="clear-files" class="ml-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+                            Clear Files
+                        </button>
+                        
+                        <div id="file-names" class="mt-4 space-y-2"></div>
+                    </div>
+                    
+                    <div class="options-section mb-6">
+                        <h3 class="text-lg font-semibold mb-4 text-gray-700">Options</h3>
+                        <div class="space-y-4">
+                            <div class="option-group">
+                                <label for="provider" class="block text-sm font-medium text-gray-700 mb-1">
+                                    LLM Provider
+                                </label>
+                                <select id="provider" name="provider" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="anthropic">Anthropic</option>
+                                    <option value="openai" selected>OpenAI</option>
+                                    <option value="google">Google</option>
+                                </select>
+                            </div>
+                            
+                            <div class="option-group">
+                                <label class="inline-flex items-center">
+                                    <input type="checkbox" id="debug-mode" name="debug-mode" class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                                    <span class="ml-2 text-sm text-gray-700">Debug Mode</span>
+                                </label>
+                            </div>
                         </div>
                     </div>
                     
-                    <button type="submit" id="submit-btn" class="submit-btn">Underwrite</button>
+                    <button type="submit" id="submit-btn" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed">
+                        Underwrite
+                    </button>
                 </form>
             </div>
         </div>
         
-        <div class="loading-container">
-            <div id="loading-text" class="loading-text">Underwriting with AI Agent</div>
+        <!-- Loading Container -->
+        <div class="loading-container hidden">
+            <div id="loading-text" class="text-lg font-semibold text-gray-800 mb-4">
+                Underwriting with AI Agent
+            </div>
         </div>
         
-        <div class="results-section" id="results-section" style="display: none;">
-            <h2>Analysis Results</h2>
-            <div class="results-tabs">
-                <button class="tab-btn active" data-tab="summary">Summary</button>
-                <button class="tab-btn" data-tab="financials">Financial Analysis</button>
-                <button class="tab-btn" data-tab="credit">Credit Decision</button>
-                <button class="tab-btn" data-tab="raw">Raw JSON</button>
+        <!-- Results Section -->
+        <div class="results-section hidden" id="results-section">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">Analysis Results</h2>
+            
+            <!-- Tabs -->
+            <div class="results-tabs mb-4 border-b border-gray-200">
+                <button class="tab-btn active px-4 py-2 font-semibold text-blue-600 border-b-2 border-blue-600" data-tab="summary">Summary</button>
+                <button class="tab-btn px-4 py-2 font-semibold text-gray-500 hover:text-gray-700" data-tab="financials">Financial Analysis</button>
+                <button class="tab-btn px-4 py-2 font-semibold text-gray-500 hover:text-gray-700" data-tab="credit">Credit Decision</button>
+                <button class="tab-btn px-4 py-2 font-semibold text-gray-500 hover:text-gray-700" data-tab="raw">Raw JSON</button>
             </div>
-            <div class="tab-content">
+            
+            <div class="tab-content bg-white rounded-lg shadow-md p-6">
+                <!-- Summary Tab -->
                 <div id="summary-tab" class="tab-pane active">
-                    <div class="summary-cards">
-                        <div class="summary-card">
-                            <h3>Statement Overview</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="summary-card bg-gray-50 rounded-lg p-6">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Statement Overview</h3>
                             <div class="statement-continuity"></div>
                         </div>
-                        <div class="summary-card">
-                            <h3>Key Metrics</h3>
+                        <div class="summary-card bg-gray-50 rounded-lg p-6">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Key Metrics</h3>
                             <div class="key-metrics"></div>
                         </div>
                     </div>
                 </div>
-                <div id="financials-tab" class="tab-pane">
-                    <div class="financial-cards">
-                        <div class="chart-card">
-                            <h3>Daily Balances</h3>
+
+                <!-- Financial Analysis Tab -->
+                <div id="financials-tab" class="tab-pane hidden">
+                    <div class="space-y-6">
+                        <div class="chart-card bg-gray-50 rounded-lg p-6">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Daily Balances</h3>
                             <div class="daily-balance-chart"></div>
                         </div>
-                        <div class="metrics-grid">
-                            <div class="metric-card">
-                                <h4>Monthly Data</h4>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="metric-card bg-gray-50 rounded-lg p-6">
+                                <h4 class="text-lg font-semibold text-gray-800 mb-4">Monthly Data</h4>
                                 <div class="monthly-data metric-content"></div>
                             </div>
-                            <div class="metric-card">
-                                <h4>Financial Statistics</h4>
+                            
+                            <div class="metric-card bg-gray-50 rounded-lg p-6">
+                                <h4 class="text-lg font-semibold text-gray-800 mb-4">Financial Statistics</h4>
                                 <div class="avg-balance metric-content"></div>
                             </div>
-                            <div class="metric-card">
-                                <h4>NSF Activity</h4>
+                            
+                            <div class="metric-card bg-gray-50 rounded-lg p-6">
+                                <h4 class="text-lg font-semibold text-gray-800 mb-4">NSF Activity</h4>
                                 <div class="nsf-info metric-content"></div>
                             </div>
-                            <div class="metric-card">
-                                <h4>Monthly Closing</h4>
+                            
+                            <div class="metric-card bg-gray-50 rounded-lg p-6">
+                                <h4 class="text-lg font-semibold text-gray-800 mb-4">Monthly Closing</h4>
                                 <div class="closing-balance metric-content"></div>
                             </div>
                         </div>
                     </div>
                 </div>
-                <div id="credit-tab" class="tab-pane">
-                    <div class="credit-analysis-card">
-                        <div class="decision-header"></div>
-                        <div class="risk-factors">
-                            <div class="positive-factors"></div>
-                            <div class="negative-factors"></div>
+
+                <!-- Credit Decision Tab -->
+                <div id="credit-tab" class="tab-pane hidden">
+                    <div class="credit-analysis-card bg-gray-50 rounded-lg p-6">
+                        <div class="decision-header mb-6"></div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <div class="positive-factors">
+                                <h3 class="text-lg font-semibold text-gray-800 mb-4">Mitigating Factors</h3>
+                            </div>
+                            <div class="negative-factors">
+                                <h3 class="text-lg font-semibold text-gray-800 mb-4">Risk Factors</h3>
+                            </div>
                         </div>
-                        <div class="recommendations"></div>
+                        <div class="recommendations">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Conditions</h3>
+                        </div>
                     </div>
                 </div>
-                <div id="raw-tab" class="tab-pane">
-                    <div id="results-content"></div>
+
+                <!-- Raw JSON Tab -->
+                <div id="raw-tab" class="tab-pane hidden">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold text-gray-800">Raw JSON Data</h3>
+                        <button id="copy-json" class="flex items-center px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                            Copy JSON
+                        </button>
+                    </div>
+                    <div id="results-content" class="bg-gray-100 rounded-lg p-4 font-mono text-sm overflow-x-auto"></div>
                 </div>
             </div>
         </div>

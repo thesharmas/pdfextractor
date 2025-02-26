@@ -14,9 +14,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Toggle upload section
     function toggleUploadSection() {
-        uploadContent.classList.toggle('collapsed');
-        toggleBtn.classList.toggle('collapsed');
-        uploadSection.classList.toggle('collapsed');
+        uploadContent.classList.toggle('hidden');
+        const icon = toggleBtn.querySelector('.toggle-icon');
+        icon.textContent = uploadContent.classList.contains('hidden') ? '▼' : '▲';
     }
     
     toggleBtn.addEventListener('click', toggleUploadSection);
@@ -118,19 +118,20 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
         
         // Clear previous results and status
-        resultsSection.style.display = 'none';
+        resultsSection.classList.add('hidden');
         resultsContent.innerHTML = '';
         statusList.innerHTML = '';
         
         // Show loading container
-        loadingContainer.style.display = 'flex';
+        loadingContainer.classList.remove('hidden');
         
         // Disable submit button
         submitBtn.disabled = true;
         
-        // Collapse the upload section
-        uploadContent.style.display = 'none';
-        toggleBtn.classList.add('collapsed');
+        // Hide the upload section when underwriting starts
+        uploadContent.classList.add('hidden');
+        const icon = toggleBtn.querySelector('.toggle-icon');
+        icon.textContent = '▼';
         
         // Start listening for status updates
         const eventSource = new EventSource('/status');
@@ -167,7 +168,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const result = await response.json();
             
             // Hide loading container
-            loadingContainer.style.display = 'none';
+            loadingContainer.classList.add('hidden');
             
             // Display results
             displayResults(result);
@@ -176,10 +177,10 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Error:', error);
             
             // Hide loading container
-            loadingContainer.style.display = 'none';
+            loadingContainer.classList.add('hidden');
             
             // Show error in results section
-            resultsSection.style.display = 'block';
+            resultsSection.classList.remove('hidden');
             resultsContent.innerHTML = `
                 <div class="error">
                     <h3>Error</h3>
@@ -232,6 +233,95 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+// Add this function to handle tab switching
+function initializeTabs() {
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            // Remove active class from all buttons
+            tabButtons.forEach(btn => {
+                btn.classList.remove('active');
+                btn.classList.remove('text-blue-600');
+                btn.classList.remove('border-b-2');
+                btn.classList.remove('border-blue-600');
+                btn.classList.add('text-gray-500');
+            });
+            
+            // Add active class to clicked button
+            button.classList.add('active');
+            button.classList.add('text-blue-600');
+            button.classList.add('border-b-2');
+            button.classList.add('border-blue-600');
+            button.classList.remove('text-gray-500');
+            
+            // Hide all tab panes
+            document.querySelectorAll('.tab-pane').forEach(pane => {
+                pane.classList.add('hidden');
+            });
+            
+            // Show the selected tab pane
+            const tabId = button.getAttribute('data-tab');
+            document.getElementById(`${tabId}-tab`).classList.remove('hidden');
+        });
+    });
+}
+
+// Add this function to handle copying JSON to clipboard
+function initializeJsonCopy() {
+    const copyButton = document.getElementById('copy-json');
+    if (!copyButton) return;
+
+    copyButton.addEventListener('click', async () => {
+        const jsonContent = document.getElementById('results-content');
+        
+        try {
+            // Get the text content and format it
+            const jsonText = jsonContent.textContent;
+            await navigator.clipboard.writeText(jsonText);
+            
+            // Update button to show success state
+            const originalContent = copyButton.innerHTML;
+            copyButton.innerHTML = `
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Copied!
+            `;
+            copyButton.classList.remove('bg-blue-50', 'text-blue-600');
+            copyButton.classList.add('bg-green-50', 'text-green-600');
+            
+            // Reset button after 2 seconds
+            setTimeout(() => {
+                copyButton.innerHTML = originalContent;
+                copyButton.classList.remove('bg-green-50', 'text-green-600');
+                copyButton.classList.add('bg-blue-50', 'text-blue-600');
+            }, 2000);
+            
+        } catch (err) {
+            // Show error state
+            copyButton.innerHTML = `
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Failed to copy
+            `;
+            copyButton.classList.remove('bg-blue-50', 'text-blue-600');
+            copyButton.classList.add('bg-red-50', 'text-red-600');
+            
+            // Reset button after 2 seconds
+            setTimeout(() => {
+                copyButton.innerHTML = originalContent;
+                copyButton.classList.remove('bg-red-50', 'text-red-600');
+                copyButton.classList.add('bg-blue-50', 'text-blue-600');
+            }, 2000);
+            
+            console.error('Failed to copy JSON:', err);
+        }
+    });
+}
+
+// Update the displayResults function to initialize tabs after displaying results
 function displayResults(response) {
     const resultsSection = document.getElementById('results-section');
     const resultsContent = document.getElementById('results-content');
@@ -254,9 +344,11 @@ function displayResults(response) {
     // Update Statement Overview
     if (statementContinuity) {
         statementContinuity.innerHTML = `
-            <div class="metric">
-                <strong>Analysis Summary</strong>
-                <p>${recommendation.detailed_analysis || 'No analysis available'}</p>
+            <div class="space-y-4">
+                <div class="metric">
+                    <strong class="text-gray-700">Analysis Summary</strong>
+                    <p class="text-gray-600 mt-2">${recommendation.detailed_analysis || 'No analysis available'}</p>
+                </div>
             </div>
         `;
     }
@@ -264,18 +356,18 @@ function displayResults(response) {
     // Update Key Metrics
     if (keyMetrics) {
         keyMetrics.innerHTML = `
-            <div class="metrics-grid">
+            <div class="grid gap-4">
                 <div class="metric">
-                    <strong>Payment Coverage</strong>
-                    <p>${(metrics.payment_coverage_ratio || 0).toFixed(2)}x</p>
+                    <strong class="text-gray-700 block mb-1">Payment Coverage</strong>
+                    <p class="text-2xl font-semibold">${(metrics.payment_coverage_ratio || 0).toFixed(2)}x</p>
                 </div>
                 <div class="metric">
-                    <strong>Balance Trend</strong>
-                    <p>${metrics.average_daily_balance_trend || 'N/A'}</p>
+                    <strong class="text-gray-700 block mb-1">Balance Trend</strong>
+                    <p class="text-2xl font-semibold">${metrics.average_daily_balance_trend || 'N/A'}</p>
                 </div>
                 <div class="metric">
-                    <strong>Lowest Balance</strong>
-                    <p>$${formatNumber((metrics.lowest_monthly_balance || 0).toFixed(2))}</p>
+                    <strong class="text-gray-700 block mb-1">Lowest Balance</strong>
+                    <p class="text-2xl font-semibold">$${formatNumber((metrics.lowest_monthly_balance || 0).toFixed(2))}</p>
                 </div>
             </div>
         `;
@@ -285,25 +377,27 @@ function displayResults(response) {
     const monthlyData = response?.metrics?.monthly_financials?.monthly_data || {};
     const monthlyDataHtml = Object.entries(monthlyData)
         .map(([month, data]) => `
-            <div class="month-group">
-                <h5>${month}</h5>
-                <div class="stat-item">
-                    <span class="stat-label">Revenue:</span>
-                    <span class="stat-value">$${formatNumber(data.revenue.toFixed(2))}</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Expenses:</span>
-                    <span class="stat-value">$${formatNumber(data.expenses.toFixed(2))}</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Cash Flow:</span>
-                    <span class="stat-value ${data.cashflow >= 0 ? 'positive' : 'negative'}">
-                        $${formatNumber(data.cashflow.toFixed(2))}
-                    </span>
+            <div class="month-group border-b border-gray-200 last:border-0 py-3">
+                <h5 class="font-semibold text-gray-700 mb-2">${month}</h5>
+                <div class="grid gap-2">
+                    <div class="stat-item flex justify-between">
+                        <span class="text-gray-600">Revenue:</span>
+                        <span class="font-medium">$${formatNumber(data.revenue.toFixed(2))}</span>
+                    </div>
+                    <div class="stat-item flex justify-between">
+                        <span class="text-gray-600">Expenses:</span>
+                        <span class="font-medium">$${formatNumber(data.expenses.toFixed(2))}</span>
+                    </div>
+                    <div class="stat-item flex justify-between">
+                        <span class="text-gray-600">Cash Flow:</span>
+                        <span class="font-medium ${data.cashflow >= 0 ? 'text-green-600' : 'text-red-600'}">
+                            $${formatNumber(data.cashflow.toFixed(2))}
+                        </span>
+                    </div>
                 </div>
             </div>
         `).join('');
-    document.querySelector('.monthly-data').innerHTML = monthlyDataHtml || '<p>No monthly data available</p>';
+    document.querySelector('.monthly-data').innerHTML = monthlyDataHtml || '<p class="text-gray-500">No monthly data available</p>';
 
     // Update Financial Statistics
     const avgBalanceHtml = `
@@ -464,28 +558,16 @@ function displayResults(response) {
         resultsContent.innerHTML = `<pre>${JSON.stringify(response, null, 2)}</pre>`;
     }
     
-    // Show results section with animation
-    resultsSection.style.display = 'block';
-    setTimeout(() => {
-        resultsSection.classList.add('visible');
-    }, 10);
+    // Show results section and initialize tabs
+    document.getElementById('results-section').classList.remove('hidden');
+    initializeTabs();
+    initializeJsonCopy();
     
-    // Add tab switching functionality
-    const tabBtns = document.querySelectorAll('.tab-btn');
-    const tabPanes = document.querySelectorAll('.tab-pane');
-    
-    tabBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            // Remove active class from all buttons and panes
-            tabBtns.forEach(b => b.classList.remove('active'));
-            tabPanes.forEach(p => p.classList.remove('active'));
-            
-            // Add active class to clicked button and corresponding pane
-            btn.classList.add('active');
-            const tabId = btn.dataset.tab;
-            document.getElementById(`${tabId}-tab`).classList.add('active');
-        });
-    });
+    // Set Summary tab as active by default
+    const summaryTab = document.querySelector('[data-tab="summary"]');
+    if (summaryTab) {
+        summaryTab.click();
+    }
 }
 
 // Helper function to format numbers with commas
@@ -505,4 +587,15 @@ document.querySelectorAll('.tab-btn').forEach(button => {
         const tabId = button.getAttribute('data-tab');
         document.getElementById(`${tabId}-tab`).classList.add('active');
     });
-}); 
+});
+
+function updateTabVisibility() {
+    const activeTab = document.querySelector('.tab-btn.active');
+    if (activeTab) {
+        const targetId = activeTab.getAttribute('data-tab');
+        document.querySelectorAll('.tab-pane').forEach(pane => {
+            pane.classList.add('hidden');
+        });
+        document.getElementById(`${targetId}-tab`).classList.remove('hidden');
+    }
+} 
