@@ -13,7 +13,7 @@ from typing import List, Dict, Any, Tuple
 import logging
 from pydantic import BaseModel
 from app.services.content_service import ContentService
-from app.tools.analysis_tools import  check_nsf, set_llm,check_statement_continuity,extract_daily_balances,extract_monthly_closing_balances,analyze_credit_decision_term_loan,analyze_monthly_financials
+from app.tools.analysis_tools import  check_nsf, set_llm,check_statement_continuity,extract_daily_balances,extract_monthly_closing_balances,analyze_credit_decision_term_loan,analyze_monthly_financials, analyze_credit_decision_accounts_payable
 from app.services.llm_factory import LLMFactory
 from app.config import Config, LLMProvider, ModelType
 import json
@@ -224,18 +224,65 @@ def underwrite():
             )
             set_llm(reasoning_llm)
             reasoning_llm.add_json(master_response)
-            send_status("credit_analysis", "Processing", "Performing final credit analysis")
             
-            credit_analysis = analyze_credit_decision_term_loan("None")
-            master_response.update(credit_analysis)
-            send_status("credit_analysis", "Complete", "Credit analysis complete")
+            # Perform credit analysis for both products
+            send_status("credit_analysis", "Processing", "Analyzing Term Loan product")
+            term_loan_analysis = analyze_credit_decision_term_loan("None")
+            term_loan_recommendation = term_loan_analysis.get("credit_analysis", {}).get("loan_recommendation", {})
+            
+            send_status("credit_analysis", "Processing", "Analyzing Accounts Payable product")
+            accounts_payable_analysis = analyze_credit_decision_accounts_payable("None")
+            accounts_payable_recommendation = accounts_payable_analysis.get("credit_analysis", {}).get("loan_recommendation", {})
+            
+            # Combine both analyses into the master response
+            master_response["loan_recommendations"] = [
+                term_loan_recommendation,
+                accounts_payable_recommendation
+            ]
+            
+            send_status("credit_analysis", "Complete", "Credit analysis complete for all products")
             
         except Exception as e:
             logger.error(f"Error during credit analysis: {str(e)}")
             send_status("credit_analysis", "Error", f"Credit analysis failed: {str(e)}")
-            master_response["credit_analysis"] = {
-                "error": f"Credit analysis failed: {str(e)}"
-            }
+            master_response["loan_recommendations"] = [
+                {
+                    "product_type": "term_loan",
+                    "product_name": "Term Loan",
+                    "approval_decision": "ERROR",
+                    "confidence_score": 0,
+                    "max_loan_amount": 0,
+                    "max_monthly_payment_amount": 0,
+                    "detailed_analysis": f"Credit analysis failed: {str(e)}",
+                    "mitigating_factors": [],
+                    "risk_factors": ["Analysis error occurred"],
+                    "conditions_if_approved": [],
+                    "key_metrics": {
+                        "payment_coverage_ratio": 0,
+                        "average_daily_balance_trend": "N/A",
+                        "lowest_monthly_balance": 0,
+                        "highest_nsf_month_count": 0
+                    }
+                },
+                {
+                    "product_type": "accounts_payable",
+                    "product_name": "Accounts Payable Financing",
+                    "approval_decision": "ERROR",
+                    "confidence_score": 0,
+                    "max_loan_amount": 0,
+                    "max_monthly_payment_amount": 0,
+                    "detailed_analysis": f"Credit analysis failed: {str(e)}",
+                    "mitigating_factors": [],
+                    "risk_factors": ["Analysis error occurred"],
+                    "conditions_if_approved": [],
+                    "key_metrics": {
+                        "payment_coverage_ratio": 0,
+                        "average_daily_balance_trend": "N/A",
+                        "lowest_monthly_balance": 0,
+                        "highest_nsf_month_count": 0
+                    }
+                }
+            ]
         
         send_status("complete", "Success", "All analyses complete")
         # Log the formatted JSON response

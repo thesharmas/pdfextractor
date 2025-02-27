@@ -746,15 +746,43 @@ Return ONLY a valid JSON object in this exact format, with no additional text:
             
         try:
             analysis_result = json.loads(cleaned_response)
-            # Ensure we have the loan_recommendation structure
-            if "loan_recommendation" not in analysis_result:
-                logger.warning("Missing loan_recommendation in analysis result")
-                analysis_result = {
-                    "loan_recommendation": analysis_result
-                }
+            
+            # Get the recommendation part
+            if "loan_recommendation" in analysis_result:
+                recommendation = analysis_result["loan_recommendation"]
+            else:
+                recommendation = analysis_result
+            
+            # Add product-specific information
+            enhanced_recommendation = {
+                "product_type": "term_loan",
+                "product_name": "Term Loan",
+                "product_details": {
+                    "term_months": 12,
+                    "payment_frequency": "monthly",
+                    "annual_interest_rate": 19
+                },
+                # Include all existing fields
+                "approval_decision": recommendation.get("approval_decision", False),
+                "confidence_score": recommendation.get("confidence_score", 0),
+                "max_loan_amount": recommendation.get("max_loan_amount", 0),
+                "max_monthly_payment_amount": recommendation.get("max_monthly_payment_amount", 0),
+                "detailed_analysis": recommendation.get("detailed_analysis", ""),
+                "mitigating_factors": recommendation.get("mitigating_factors", []),
+                "risk_factors": recommendation.get("risk_factors", []),
+                "conditions_if_approved": recommendation.get("conditions_if_approved", []),
+                "key_metrics": recommendation.get("key_metrics", {
+                    "payment_coverage_ratio": 0,
+                    "average_daily_balance_trend": "N/A",
+                    "lowest_monthly_balance": 0,
+                    "highest_nsf_month_count": 0
+                })
+            }
             
             return {
-                "credit_analysis": analysis_result
+                "credit_analysis": {
+                    "loan_recommendation": enhanced_recommendation
+                }
             }
 
         except json.JSONDecodeError as e:
@@ -763,6 +791,13 @@ Return ONLY a valid JSON object in this exact format, with no additional text:
             return {
                 "credit_analysis": {
                     "loan_recommendation": {
+                        "product_type": "term_loan",
+                        "product_name": "Term Loan",
+                        "product_details": {
+                            "term_months": 12,
+                            "payment_frequency": "monthly",
+                            "annual_interest_rate": 19
+                        },
                         "approval_decision": "ERROR",
                         "confidence_score": 0,
                         "max_loan_amount": 0,
@@ -782,11 +817,18 @@ Return ONLY a valid JSON object in this exact format, with no additional text:
             }
 
     except Exception as e:
-        logger.error(f"Error in analyze_credit_decision: {str(e)}")
+        logger.error(f"Error in analyze_credit_decision_term_loan: {str(e)}")
         logger.error("Full traceback:", exc_info=True)
         return {
             "credit_analysis": {
                 "loan_recommendation": {
+                    "product_type": "term_loan",
+                    "product_name": "Term Loan",
+                    "product_details": {
+                        "term_months": 12,
+                        "payment_frequency": "monthly",
+                        "annual_interest_rate": 19
+                    },
                     "approval_decision": "ERROR",
                     "confidence_score": 0,
                     "max_loan_amount": 0,
@@ -803,7 +845,7 @@ Return ONLY a valid JSON object in this exact format, with no additional text:
                     }
                 }
             }
-        } 
+        }
 
 @tool
 def analyze_credit_decision_accounts_payable(debug=False):
@@ -970,15 +1012,43 @@ Return ONLY a valid JSON object in this exact format, with no additional text:
             
         try:
             analysis_result = json.loads(cleaned_response)
-            # Ensure we have the loan_recommendation structure
-            if "loan_recommendation" not in analysis_result:
-                logger.warning("Missing loan_recommendation in analysis result")
-                analysis_result = {
-                    "loan_recommendation": analysis_result
-                }
+            
+            # Get the recommendation part
+            if "loan_recommendation" in analysis_result:
+                recommendation = analysis_result["loan_recommendation"]
+            else:
+                recommendation = analysis_result
+            
+            # Add product-specific information
+            enhanced_recommendation = {
+                "product_type": "accounts_payable",
+                "product_name": "Accounts Payable Financing",
+                "product_details": {
+                    "max_term_days": 90,
+                    "payment_type": "bullet",
+                    "fee_structure": "transaction_fee"
+                },
+                # Include all existing fields
+                "approval_decision": recommendation.get("approval_decision", False),
+                "confidence_score": recommendation.get("confidence_score", 0),
+                "max_loan_amount": recommendation.get("max_loan_amount", 0),
+                "max_monthly_payment_amount": recommendation.get("max_monthly_payment_amount", 0),
+                "detailed_analysis": recommendation.get("detailed_analysis", ""),
+                "mitigating_factors": recommendation.get("mitigating_factors", []),
+                "risk_factors": recommendation.get("risk_factors", []),
+                "conditions_if_approved": recommendation.get("conditions_if_approved", []),
+                "key_metrics": recommendation.get("key_metrics", {
+                    "payment_coverage_ratio": 0,
+                    "average_daily_balance_trend": "N/A",
+                    "lowest_monthly_balance": 0,
+                    "highest_nsf_month_count": 0
+                })
+            }
             
             return {
-                "credit_analysis": analysis_result
+                "credit_analysis": {
+                    "loan_recommendation": enhanced_recommendation
+                }
             }
             
         except json.JSONDecodeError as e:
@@ -987,6 +1057,13 @@ Return ONLY a valid JSON object in this exact format, with no additional text:
             return {
                 "credit_analysis": {
                     "loan_recommendation": {
+                        "product_type": "accounts_payable",
+                        "product_name": "Accounts Payable Financing",
+                        "product_details": {
+                            "max_term_days": 90,
+                            "payment_type": "bullet",
+                            "fee_structure": "transaction_fee"
+                        },
                         "approval_decision": "ERROR",
                         "confidence_score": 0,
                         "max_loan_amount": 0,
@@ -1011,6 +1088,13 @@ Return ONLY a valid JSON object in this exact format, with no additional text:
         return {
             "credit_analysis": {
                 "loan_recommendation": {
+                    "product_type": "accounts_payable",
+                    "product_name": "Accounts Payable Financing",
+                    "product_details": {
+                        "max_term_days": 90,
+                        "payment_type": "bullet",
+                        "fee_structure": "transaction_fee"
+                    },
                     "approval_decision": "ERROR",
                     "confidence_score": 0,
                     "max_loan_amount": 0,

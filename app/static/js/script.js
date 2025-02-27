@@ -464,7 +464,7 @@ function determineResultsState(response) {
 }
 
 function displayResults(response) {
-    console.log('Response received:', response); // Debug log
+    console.log('Response received:', response);
 
     const resultsSection = document.getElementById('results-section');
     if (!resultsSection) {
@@ -475,159 +475,89 @@ function displayResults(response) {
     // Make sure results section is visible
     resultsSection.classList.remove('hidden');
 
-    // 1. First check for error response (non-contiguous statements case)
-    if (response.error === "Bank statements are not contiguous") {
-        console.log('Non-contiguous statements error detected'); // Debug log
-        
-        // Show the summary tab content
-        const summaryTab = document.getElementById('summary-tab');
-        if (summaryTab) {
-            const continuityData = safeAccess(response, 'metrics.statement_continuity', {});
-            const errorDetails = safeAccess(response, 'details', {});
-            
-            summaryTab.innerHTML = `
-                <div class="bg-red-50 border-l-4 border-red-500 rounded-lg p-6 my-4">
-                    <div class="flex items-center mb-4">
-                        <div class="flex-shrink-0">
-                            <svg class="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                            </svg>
-                        </div>
-                        <div class="ml-4">
-                            <h3 class="text-lg font-medium text-red-800">${response.error}</h3>
-                        </div>
-                    </div>
-                    
-                    <div class="ml-10">
-                        <p class="text-red-700 mb-4">${errorDetails.explanation}</p>
-                        
-                        ${errorDetails.gap_details && errorDetails.gap_details.length > 0 ? `
-                            <div class="mt-4">
-                                <h4 class="text-sm font-semibold text-red-800 mb-2">Statement Gaps Found:</h4>
-                                <ul class="list-disc list-inside space-y-1 text-red-700">
-                                    ${errorDetails.gap_details.map(gap => `
-                                        <li class="text-sm">${gap}</li>
-                                    `).join('')}
-                                </ul>
-                            </div>
-                        ` : ''}
-
-                        <div class="mt-6 pt-4 border-t border-red-200">
-                            <h4 class="text-sm font-semibold text-red-800 mb-2">Uploaded Statement Periods:</h4>
-                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                                ${continuityData.statement_periods ? continuityData.statement_periods.map(period => `
-                                    <div class="text-sm text-red-700 bg-red-50 rounded p-2">
-                                        ${period.start_date} to ${period.end_date}
-                                    </div>
-                                `).join('') : ''}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        // Update raw JSON tab
-        const rawTab = document.getElementById('raw-tab');
-        if (rawTab) {
-            rawTab.innerHTML = `
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-semibold text-gray-800">Raw JSON Data</h3>
-                    <button id="copy-json" class="flex items-center px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                        Copy JSON
-                    </button>
-                </div>
-                <pre class="bg-gray-100 rounded-lg p-4 font-mono text-sm overflow-x-auto whitespace-pre-wrap">${JSON.stringify(response, null, 2)}</pre>
-            `;
-            
-            // Initialize copy button functionality after updating the content
-            initializeJsonCopy();
-        }
-
-        return;
-    }
-
-    // 2. For success case, update all tabs
-    // Update Summary tab (Credit Decision)
+    // Update Summary tab
     const summaryTab = document.getElementById('summary-tab');
     if (summaryTab) {
-        const recommendation = safeAccess(response, 'credit_analysis.loan_recommendation');
-        if (recommendation) {
-            summaryTab.innerHTML = `
+        const recommendations = safeAccess(response, 'loan_recommendations', []);
+        const termLoanRec = recommendations.find(rec => rec.product_type === 'term_loan') || {};
+        const accountsPayableRec = recommendations.find(rec => rec.product_type === 'accounts_payable') || {};
+
+        summaryTab.innerHTML = `
+            <div class="space-y-6">
+                <!-- Term Loan Summary Card -->
                 <div class="bg-white shadow rounded-lg p-6">
                     <div class="flex items-center justify-between mb-6">
-                        <h2 class="text-2xl font-bold text-gray-900">Loan Decision</h2>
+                        <h2 class="text-xl font-bold text-gray-900">Term Loan</h2>
                         <span class="px-4 py-2 rounded-full text-sm font-semibold ${
-                            recommendation.approval_decision 
+                            termLoanRec.approval_decision 
                             ? 'bg-green-100 text-green-800 border border-green-200' 
                             : 'bg-red-100 text-red-800 border border-red-200'
                         }">
-                            ${recommendation.approval_decision ? 'Approved' : 'Not Approved'}
+                            ${termLoanRec.approval_decision ? 'Approved' : 'Not Approved'}
                         </span>
                     </div>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                         <div class="p-4 bg-gray-50 rounded-lg">
                             <h3 class="font-semibold mb-2">Maximum Loan Amount</h3>
-                            <p class="text-2xl font-bold">$${formatNumber(recommendation.max_loan_amount)}</p>
+                            <p class="text-2xl font-bold">$${formatNumber(termLoanRec.max_loan_amount)}</p>
                         </div>
                         <div class="p-4 bg-gray-50 rounded-lg">
                             <h3 class="font-semibold mb-2">Monthly Payment</h3>
-                            <p class="text-2xl font-bold">$${formatNumber(recommendation.max_monthly_payment_amount)}</p>
+                            <p class="text-2xl font-bold">$${formatNumber(termLoanRec.max_monthly_payment_amount)}</p>
                         </div>
-                    </div>
-
-                    <div class="mb-6">
-                        <h3 class="font-semibold mb-2">Risk Factors</h3>
-                        <ul class="list-disc list-inside space-y-1">
-                            ${recommendation.risk_factors.map(factor => `
-                                <li class="text-red-600">${factor}</li>
-                            `).join('')}
-                        </ul>
-                    </div>
-
-                    <div class="mb-6">
-                        <h3 class="font-semibold mb-2">Mitigating Factors</h3>
-                        <ul class="list-disc list-inside space-y-1">
-                            ${recommendation.mitigating_factors.map(factor => `
-                                <li class="text-green-600">${factor}</li>
-                            `).join('')}
-                        </ul>
-                    </div>
-
-                    ${recommendation.conditions_if_approved ? `
-                        <div class="mb-6">
-                            <h3 class="font-semibold mb-2">Conditions if Approved</h3>
-                            <ul class="list-disc list-inside space-y-1">
-                                ${recommendation.conditions_if_approved.map(condition => `
-                                    <li>${condition}</li>
-                                `).join('')}
-                            </ul>
-                        </div>
-                    ` : ''}
-
-                    <div class="mt-4 p-4 bg-gray-50 rounded-lg">
-                        <h3 class="font-semibold mb-2">Detailed Analysis</h3>
-                        <p>${recommendation.detailed_analysis}</p>
                     </div>
                 </div>
-            `;
-        }
-    }
 
-    // Update Financial Summary tab
-    if (response.metrics) {
-        updateFinancialTab(response);
+                <!-- Accounts Payable Summary Card -->
+                <div class="bg-white shadow rounded-lg p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-xl font-bold text-gray-900">Accounts Payable Financing</h2>
+                        <span class="px-4 py-2 rounded-full text-sm font-semibold ${
+                            accountsPayableRec.approval_decision 
+                            ? 'bg-green-100 text-green-800 border border-green-200' 
+                            : 'bg-red-100 text-red-800 border border-red-200'
+                        }">
+                            ${accountsPayableRec.approval_decision ? 'Approved' : 'Not Approved'}
+                        </span>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div class="p-4 bg-gray-50 rounded-lg">
+                            <h3 class="font-semibold mb-2">Maximum Financing Amount</h3>
+                            <p class="text-2xl font-bold">$${formatNumber(accountsPayableRec.max_loan_amount)}</p>
+                        </div>
+                        <div class="p-4 bg-gray-50 rounded-lg">
+                            <h3 class="font-semibold mb-2">Maximum Draw Amount</h3>
+                            <p class="text-2xl font-bold">$${formatNumber(accountsPayableRec.max_monthly_payment_amount)}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
     }
 
     // Update Credit Decision tab
-    if (response.credit_analysis) {
-        updateFinancialsTab(response);
+    const financialsTab = document.getElementById('financials-tab');
+    if (financialsTab) {
+        const recommendations = safeAccess(response, 'loan_recommendations', []);
+        const termLoanRec = recommendations.find(rec => rec.product_type === 'term_loan');
+        const accountsPayableRec = recommendations.find(rec => rec.product_type === 'accounts_payable');
+
+        financialsTab.innerHTML = `
+            <div class="space-y-8">
+                <!-- Term Loan Section -->
+                ${renderProductSection('Term Loan', termLoanRec)}
+
+                <!-- Accounts Payable Section -->
+                ${renderProductSection('Accounts Payable Financing', accountsPayableRec)}
+            </div>
+        `;
     }
 
+    // Update other tabs...
+    updateFinancialTab(response);
+    
     // Update Raw JSON tab
     const rawTab = document.getElementById('raw-tab');
     if (rawTab) {
@@ -644,14 +574,7 @@ function displayResults(response) {
             <pre class="bg-gray-100 rounded-lg p-4 font-mono text-sm overflow-x-auto whitespace-pre-wrap">${JSON.stringify(response, null, 2)}</pre>
         `;
         
-        // Initialize copy button functionality after updating the content
         initializeJsonCopy();
-    }
-
-    // Show the summary tab by default
-    const summaryTabBtn = document.querySelector('[data-tab="summary"]');
-    if (summaryTabBtn) {
-        summaryTabBtn.click();
     }
 }
 
@@ -790,98 +713,119 @@ function updateFinancialsTab(response) {
     const financialsTab = document.getElementById('financials-tab');
     if (!financialsTab) return;
 
-    const recommendation = safeAccess(response, 'credit_analysis.loan_recommendation', {});
-    if (!recommendation) {
-        financialsTab.innerHTML = '<div class="p-4 text-gray-600">No financial analysis data available.</div>';
-        return;
-    }
+    const recommendations = safeAccess(response, 'loan_recommendations', []);
+    
+    // Find recommendations for each product
+    const termLoanRec = recommendations.find(rec => rec.product_type === 'term_loan') || {};
+    const accountsPayableRec = recommendations.find(rec => rec.product_type === 'accounts_payable') || {};
 
-    const content = `
-        <div class="space-y-4">
-            <!-- Loan Decision Card -->
-            <div class="bg-white rounded-lg shadow p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-semibold">Loan Decision</h3>
-                    <span class="px-4 py-1 rounded-full ${recommendation.approval_decision ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
-                        ${recommendation.approval_decision ? 'Approved' : 'Not Approved'}
-                    </span>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <p class="text-gray-600">Confidence Score</p>
-                        <p class="text-lg font-semibold">${(safeAccess(recommendation, 'confidence_score', 0) * 100).toFixed(1)}%</p>
-                    </div>
-                    <div>
-                        <p class="text-gray-600">Max Loan Amount</p>
-                        <p class="text-lg font-semibold">$${formatNumber(safeAccess(recommendation, 'max_loan_amount', 0))}</p>
-                    </div>
-                    <div>
-                        <p class="text-gray-600">Max Monthly Payment</p>
-                        <p class="text-lg font-semibold">$${formatNumber(safeAccess(recommendation, 'max_monthly_payment_amount', 0))}</p>
-                    </div>
-                </div>
-            </div>
+    // Update Term Loan section
+    updateProductSection('term-loan', termLoanRec);
+    
+    // Update Accounts Payable section
+    updateProductSection('accounts-payable', accountsPayableRec);
+}
 
-            <!-- Key Metrics Card -->
-            <div class="bg-white rounded-lg shadow p-6">
-                <h3 class="text-lg font-semibold mb-4">Key Metrics</h3>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <p class="text-gray-600">Average Daily Balance Trend</p>
-                        <p class="text-lg font-semibold capitalize">${safeAccess(recommendation, 'key_metrics.average_daily_balance_trend', 'N/A')}</p>
-                    </div>
-                    <div>
-                        <p class="text-gray-600">Highest NSF Month Count</p>
-                        <p class="text-lg font-semibold">${safeAccess(recommendation, 'key_metrics.highest_nsf_month_count', 0)}</p>
-                    </div>
-                    <div>
-                        <p class="text-gray-600">Lowest Monthly Balance</p>
-                        <p class="text-lg font-semibold">$${formatNumber(safeAccess(recommendation, 'key_metrics.lowest_monthly_balance', 0))}</p>
-                    </div>
-                    <div>
-                        <p class="text-gray-600">Payment Coverage Ratio</p>
-                        <p class="text-lg font-semibold">${(safeAccess(recommendation, 'key_metrics.payment_coverage_ratio', 0)).toFixed(2)}</p>
-                    </div>
+// Add new helper function to render each product section
+function updateProductSection(sectionId, recommendation) {
+    const statusDiv = document.getElementById(`${sectionId}-status`);
+    const contentDiv = document.getElementById(`${sectionId}-content`);
+    
+    if (!statusDiv || !contentDiv) return;
+
+    // Update status pill
+    statusDiv.innerHTML = `
+        <span class="px-4 py-1 rounded-full text-sm font-semibold ${
+            recommendation.approval_decision 
+            ? 'bg-green-100 text-green-800 border border-green-200' 
+            : 'bg-red-100 text-red-800 border border-red-200'
+        }">
+            ${recommendation.approval_decision ? 'Approved' : 'Not Approved'}
+        </span>
+    `;
+
+    // Update content
+    contentDiv.innerHTML = `
+        <div class="space-y-6">
+            <!-- Loan Details -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <p class="text-sm text-gray-600">Maximum Amount</p>
+                    <p class="text-lg font-semibold">$${formatNumber(recommendation.max_loan_amount || 0)}</p>
+                </div>
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <p class="text-sm text-gray-600">Monthly Payment</p>
+                    <p class="text-lg font-semibold">$${formatNumber(recommendation.max_monthly_payment_amount || 0)}</p>
+                </div>
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <p class="text-sm text-gray-600">Confidence Score</p>
+                    <p class="text-lg font-semibold">${((recommendation.confidence_score || 0) * 100).toFixed(1)}%</p>
                 </div>
             </div>
 
-            <!-- Analysis Details Card -->
-            <div class="bg-white rounded-lg shadow p-6">
-                <h3 class="text-lg font-semibold mb-4">Detailed Analysis</h3>
-                <p class="text-gray-700 mb-4">${safeAccess(recommendation, 'detailed_analysis', 'No detailed analysis available.')}</p>
-                
-                <div class="grid grid-cols-2 gap-6">
-                    <div>
-                        <h4 class="font-semibold text-gray-700 mb-2">Risk Factors</h4>
-                        <ul class="list-disc pl-5 text-red-600">
-                            ${(safeAccess(recommendation, 'risk_factors', []))
-                                .map(factor => `<li>${factor}</li>`)
-                                .join('') || '<li>No risk factors identified</li>'}
-                        </ul>
-                    </div>
-                    <div>
-                        <h4 class="font-semibold text-gray-700 mb-2">Mitigating Factors</h4>
-                        <ul class="list-disc pl-5 text-green-600">
-                            ${(safeAccess(recommendation, 'mitigating_factors', []))
-                                .map(factor => `<li>${factor}</li>`)
-                                .join('') || '<li>No mitigating factors identified</li>'}
-                        </ul>
-                    </div>
+            <!-- Analysis Details -->
+            <div class="mt-6">
+                <h4 class="font-semibold text-gray-700 mb-2">Analysis</h4>
+                <p class="text-gray-600">${recommendation.detailed_analysis || 'No detailed analysis available.'}</p>
+            </div>
+
+            <!-- Factors Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                <!-- Risk Factors -->
+                <div>
+                    <h4 class="font-semibold text-gray-700 mb-2">Risk Factors</h4>
+                    <ul class="list-disc pl-5 space-y-1">
+                        ${(recommendation.risk_factors || [])
+                            .map(factor => `<li class="text-red-600">${factor}</li>`)
+                            .join('') || '<li class="text-gray-500">No risk factors identified</li>'}
+                    </ul>
+                </div>
+
+                <!-- Mitigating Factors -->
+                <div>
+                    <h4 class="font-semibold text-gray-700 mb-2">Mitigating Factors</h4>
+                    <ul class="list-disc pl-5 space-y-1">
+                        ${(recommendation.mitigating_factors || [])
+                            .map(factor => `<li class="text-green-600">${factor}</li>`)
+                            .join('') || '<li class="text-gray-500">No mitigating factors identified</li>'}
+                    </ul>
                 </div>
             </div>
 
-            <!-- Conditions Card -->
-            <div class="bg-white rounded-lg shadow p-6">
-                <h3 class="text-lg font-semibold mb-4">Conditions if Approved</h3>
-                <ul class="list-disc pl-5 text-gray-700">
-                    ${(safeAccess(recommendation, 'conditions_if_approved', []))
-                        .map(condition => `<li>${condition}</li>`)
-                        .join('') || '<li>No conditions specified</li>'}
+            <!-- Conditions if Approved -->
+            <div class="mt-6">
+                <h4 class="font-semibold text-gray-700 mb-2">Conditions if Approved</h4>
+                <ul class="list-disc pl-5 space-y-1">
+                    ${(recommendation.conditions_if_approved || [])
+                        .map(condition => `<li class="text-gray-600">${condition}</li>`)
+                        .join('') || '<li class="text-gray-500">No conditions specified</li>'}
                 </ul>
+            </div>
+
+            <!-- Key Metrics -->
+            <div class="mt-6">
+                <h4 class="font-semibold text-gray-700 mb-2">Key Metrics</h4>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-gray-50 rounded-lg p-3">
+                        <p class="text-xs text-gray-500">Payment Coverage</p>
+                        <p class="text-sm font-semibold">${(safeAccess(recommendation, 'key_metrics.payment_coverage_ratio', 0)).toFixed(2)}</p>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-3">
+                        <p class="text-xs text-gray-500">Balance Trend</p>
+                        <p class="text-sm font-semibold capitalize">${safeAccess(recommendation, 'key_metrics.average_daily_balance_trend', 'N/A')}</p>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-3">
+                        <p class="text-xs text-gray-500">Lowest Monthly Balance</p>
+                        <p class="text-sm font-semibold">$${formatNumber(safeAccess(recommendation, 'key_metrics.lowest_monthly_balance', 0))}</p>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-3">
+                        <p class="text-xs text-gray-500">Highest NSF Count</p>
+                        <p class="text-sm font-semibold">${safeAccess(recommendation, 'key_metrics.highest_nsf_month_count', 0)}</p>
+                    </div>
+                </div>
             </div>
         </div>
     `;
-    financialsTab.innerHTML = content;
 }
 
 // Update Financial Summary tab with safety checks
@@ -1045,4 +989,95 @@ function updateFinancialTab(response) {
             </div>
         `;
     }
+}
+
+// Add this helper function to render each product section
+function renderProductSection(productName, recommendation) {
+    if (!recommendation) return '';
+
+    return `
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-semibold">${productName}</h3>
+                <span class="px-4 py-1 rounded-full ${
+                    recommendation.approval_decision 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-red-100 text-red-800'
+                }">
+                    ${recommendation.approval_decision ? 'Approved' : 'Not Approved'}
+                </span>
+            </div>
+
+            <!-- Product Details -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <p class="text-sm text-gray-600">Maximum Amount</p>
+                    <p class="text-lg font-semibold">$${formatNumber(recommendation.max_loan_amount)}</p>
+                </div>
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <p class="text-sm text-gray-600">${productName === 'Term Loan' ? 'Monthly Payment' : 'Maximum Draw'}</p>
+                    <p class="text-lg font-semibold">$${formatNumber(recommendation.max_monthly_payment_amount)}</p>
+                </div>
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <p class="text-sm text-gray-600">Confidence Score</p>
+                    <p class="text-lg font-semibold">${(recommendation.confidence_score * 100).toFixed(1)}%</p>
+                </div>
+            </div>
+
+            <!-- Analysis -->
+            <div class="mb-6">
+                <h4 class="font-semibold text-gray-700 mb-2">Analysis</h4>
+                <p class="text-gray-600">${recommendation.detailed_analysis}</p>
+            </div>
+
+            <!-- Factors -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                    <h4 class="font-semibold text-gray-700 mb-2">Risk Factors</h4>
+                    <ul class="list-disc pl-5 space-y-1">
+                        ${recommendation.risk_factors.map(factor => 
+                            `<li class="text-red-600">${factor}</li>`
+                        ).join('')}
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-gray-700 mb-2">Mitigating Factors</h4>
+                    <ul class="list-disc pl-5 space-y-1">
+                        ${recommendation.mitigating_factors.map(factor => 
+                            `<li class="text-green-600">${factor}</li>`
+                        ).join('')}
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Conditions -->
+            <div>
+                <h4 class="font-semibold text-gray-700 mb-2">Conditions if Approved</h4>
+                <ul class="list-disc pl-5 space-y-1">
+                    ${recommendation.conditions_if_approved.map(condition => 
+                        `<li class="text-gray-600">${condition}</li>`
+                    ).join('')}
+                </ul>
+            </div>
+
+            <!-- Product-specific details -->
+            ${recommendation.product_details ? `
+                <div class="mt-6 pt-6 border-t border-gray-200">
+                    <h4 class="font-semibold text-gray-700 mb-2">Product Details</h4>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        ${Object.entries(recommendation.product_details).map(([key, value]) => `
+                            <div class="bg-gray-50 rounded-lg p-3">
+                                <p class="text-xs text-gray-500">${key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</p>
+                                <p class="text-sm font-semibold">${
+                                    typeof value === 'number' && key.includes('rate') 
+                                    ? `${value}%` 
+                                    : value
+                                }</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            ` : ''}
+        </div>
+    `;
 } 
