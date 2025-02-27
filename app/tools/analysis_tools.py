@@ -673,7 +673,7 @@ You must analyze the following aspects of the business's financial health:
    - List any mitigating factors (e.g., stable deposit patterns, strong existing balances, no NSFs).
 
 10. **Conditions if Approved**  
-    - Any special stipulations (e.g., maintain certain balance, provide updated statements, or ensure no new NSF incidents).
+   - Any special stipulations (e.g., maintain certain balance, provide updated statements, or ensure no new NSF incidents).
 
 11. **Detailed Analysis**  
     - Provide a summary analysis of the business's financial health, including the key metrics and any mitigating or risk factors. Also mention in this section if you got the source data passed to you or not. this is to check if the data was actually fed to you or not.
@@ -792,6 +792,230 @@ Return ONLY a valid JSON object in this exact format, with no additional text:
                     "max_loan_amount": 0,
                     "max_monthly_payment_amount": 0,
                     "detailed_analysis": f"An error occurred during analysis: {str(e)}",
+                    "mitigating_factors": [],
+                    "risk_factors": ["Analysis error occurred"],
+                    "conditions_if_approved": [],
+                    "key_metrics": {
+                        "payment_coverage_ratio": 0,
+                        "average_daily_balance_trend": "N/A",
+                        "lowest_monthly_balance": 0,
+                        "highest_nsf_month_count": 0
+                    }
+                }
+            }
+        } 
+
+@tool
+def analyze_credit_decision_accounts_payable(debug=False):
+    """Analyzes financial data to make a credit decision for accounts payable financing. Returns JSON response."""
+    try:
+        prompt = """You are a **conservative commercial underwriter** analyzing detailed financial and bank statement data to decide whether a business qualifies for **accounts payable financing**. Under this program:
+
+- The business is granted a **limit** (up to $X).  
+- They may finance invoices/purchases up to that limit.  
+- Each disbursement is **net of fees** (there is **no recurring interest**).  
+- The **repayment** is a single ("bullet") payment of **the principal borrowed plus a transaction fee** at maturity.  
+- The maturity date can be up to **90 days** from each draw date (choose 30, 60, or 90 as appropriate).
+
+### CRITICAL JSON FORMATTING RULES:
+1. All numeric values MUST be plain numbers WITHOUT commas  
+2. Example: Use 35760.90 instead of 35,760.90  
+3. All numbers should be valid JSON numbers (no quotes around numbers)  
+4. Round all monetary amounts to 2 decimal places  
+5. Return ONLY valid parseable JSON  
+
+### 1. Financing Parameters to Evaluate
+- **Limit**: Up to $X  
+- **Term for Each Draw**: Up to 90 days (30, 60, or 90)  
+- **Repayment Structure**: Single ("bullet") repayment of principal + transaction fee  
+- **Transaction Fee**: A one-time fee (no ongoing interest)
+
+### 2. Analysis Scope & Priorities
+
+1. **Cash Flow Adequacy for Final Payment(s)**  
+   - Ensure the business can handle one or more lump-sum repayments (principal + fee) without jeopardizing operations.  
+   - Check average daily balances, monthly inflows, and net cash flow trends.
+
+2. **Existing Cash Balances (Liquidity Reserves)**  
+   - Review current and historical balances to see if they can reliably cover principal + transaction fees.  
+   - Determine if the balances are consistently high enough to handle multiple or larger draws.
+
+3. **Bank Statement Analysis & Trends**  
+   - Evaluate daily balance fluctuations and patterns (seasonal peaks or dips).  
+   - Determine if balances are increasing, stable, or declining over time.
+
+4. **NSF/Overdraft Risk Indicators**  
+   - Identify any Non-Sufficient Funds (NSF) incidents or overdrafts.  
+   - Factor in their frequency and recency.
+
+5. **Statement Continuity & Completeness**  
+   - Confirm that consecutive months or relevant periods are provided without gaps.  
+   - Missing statements could indicate data omissions or irregularities.
+
+6. **Overall Financial Health Indicators**  
+   - Look at monthly revenue vs. expenses. Are they positive, stable, or volatile?  
+   - Note if negative cash flow months are occasional or frequent.
+
+7. **Post-Financing Cash Flow Adequacy**  
+   - Determine if the business can still cover its normal operating expenses **after** repaying the financed draws.  
+   - A recommended benchmark is that net cash flow plus existing balances can handle the lump-sum obligations while maintaining at least 1.2× coverage of principal + fees.
+
+### 3. Calculation & Decision Guidelines
+
+1. **Coverage Ratio Requirement**  
+   - Use a conservative coverage ratio:  
+     [net cash flow over the financing period + prudent portion of existing balances] / [total principal + transaction fees] ≥ 1.2
+   - If net cash flow alone doesn't meet the threshold, but there are **consistently high** cash balances, consider a prudent portion of those balances (e.g. 20%) to bridge the gap.
+
+2. **Existing Cash Reserves Assessment**  
+   - If inflows are not consistently sufficient, determine if daily/weekly balances can cover the bullet payments.  
+   - Calculate how many times over the largest possible draw could be covered by those balances.
+
+3. **Average Daily Balance Trend**  
+   - Categorize as "increasing", "stable", or "decreasing" based on bank statements.  
+
+4. **NSF Handling**  
+   - Consider the presence and frequency of NSFs or overdrafts in determining risk.
+
+5. **Seasonal Patterns**  
+   - Identify any short-term dips that could coincide with repayment dates.
+
+6. **Deriving Maximum Financing Limit & Feasible Bullet Payment**  
+   - Propose a suitable limit (up to $X) and maximum draw amounts that meet coverage requirements.  
+   - Factor in the single transaction fee for each draw.  
+   - If coverage is not met, recommend a lower limit or denial.
+
+7. **Confidence Score**  
+   - Provide a numeric score between 0.0 and 1.0 reflecting your overall confidence in the approval decision.
+
+8. **Approval Decision**  
+   - true or false, indicating whether to approve the financing request under conservative guidelines.
+
+9. **Risk Factors & Mitigating Factors**  
+   - List major risks (e.g., frequent NSFs, negative net cash flow).  
+   - Note mitigating factors (e.g., strong balances, consistent revenues).
+
+10. **Conditions if Approved**  
+    - Any stipulations required (e.g., maintain a minimum balance, provide updated statements periodically).
+
+11. **Detailed Analysis**  
+    - Summarize the business's financial health, including whether source data was actually provided.
+
+Return ONLY a valid JSON object in this exact format, with no additional text:
+        {
+            "loan_recommendation": {
+                "approval_decision": boolean,
+        "confidence_score": float between 0 and 1,
+                "max_monthly_payment_amount": float,
+                "max_loan_amount": float,
+                "key_metrics": {
+                    "payment_coverage_ratio": float,
+                    "average_daily_balance_trend": "increasing|stable|decreasing",
+                    "lowest_monthly_balance": float,
+                    "highest_nsf_month_count": integer
+                },
+        "risk_factors": ["list of risk factors found"],
+        "mitigating_factors": ["list of positive factors found"],
+        "detailed_analysis": "brief analysis summary",
+        "conditions_if_approved": ["list of conditions if approved"]
+            }
+        }"""
+
+        logger.info("🔄 Calling LLM for accounts payable credit analysis")
+        response = _llm.get_response(prompt)
+        
+        # Log the raw response for debugging
+        logger.info("Raw LLM response:")
+        logger.info("-" * 50)
+        logger.info(response)
+        logger.info("-" * 50)
+
+        # First check if response is empty or None
+        if not response:
+            logger.warning("Received empty response from LLM")
+            return {
+                "credit_analysis": {
+                    "loan_recommendation": {
+                        "approval_decision": "PENDING",
+                        "confidence_score": 0,
+                        "max_loan_amount": 0,
+                        "max_monthly_payment_amount": 0,
+                        "detailed_analysis": "Unable to generate accounts payable analysis at this time. Please try again.",
+                        "mitigating_factors": [],
+                        "risk_factors": ["Analysis temporarily unavailable"],
+                        "conditions_if_approved": [],
+                        "key_metrics": {
+                            "payment_coverage_ratio": 0,
+                            "average_daily_balance_trend": "N/A",
+                            "lowest_monthly_balance": 0,
+                            "highest_nsf_month_count": 0
+                        }
+                    }
+                }
+            }
+
+        # Clean the response if it's wrapped in markdown code blocks
+        cleaned_response = response.strip()
+        if "```json" in cleaned_response:
+            cleaned_response = cleaned_response.split("```json")[1]
+        if "```" in cleaned_response:
+            cleaned_response = cleaned_response.split("```")[0]
+        cleaned_response = cleaned_response.strip()
+        
+        # Log the cleaned response for debugging
+        logger.info("Cleaned response:")
+        logger.info("-" * 50)
+        logger.info(cleaned_response)
+        logger.info("-" * 50)
+            
+        try:
+            analysis_result = json.loads(cleaned_response)
+            # Ensure we have the loan_recommendation structure
+            if "loan_recommendation" not in analysis_result:
+                logger.warning("Missing loan_recommendation in analysis result")
+                analysis_result = {
+                    "loan_recommendation": analysis_result
+                }
+            
+            return {
+                "credit_analysis": analysis_result
+            }
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse LLM response as JSON: {e}")
+            logger.error(f"Raw response: {response}")
+            return {
+                "credit_analysis": {
+                    "loan_recommendation": {
+                        "approval_decision": "ERROR",
+                        "confidence_score": 0,
+                        "max_loan_amount": 0,
+                        "max_monthly_payment_amount": 0,
+                        "detailed_analysis": "Failed to parse accounts payable analysis results",
+                        "mitigating_factors": [],
+                        "risk_factors": ["Analysis parsing error"],
+                        "conditions_if_approved": [],
+                        "key_metrics": {
+                            "payment_coverage_ratio": 0,
+                            "average_daily_balance_trend": "N/A",
+                            "lowest_monthly_balance": 0,
+                            "highest_nsf_month_count": 0
+                        }
+                    }
+                }
+            }
+
+    except Exception as e:
+        logger.error(f"Error in analyze_credit_decision_accounts_payable: {str(e)}")
+        logger.error("Full traceback:", exc_info=True)
+        return {
+            "credit_analysis": {
+                "loan_recommendation": {
+                    "approval_decision": "ERROR",
+                    "confidence_score": 0,
+                    "max_loan_amount": 0,
+                    "max_monthly_payment_amount": 0,
+                    "detailed_analysis": f"An error occurred during accounts payable analysis: {str(e)}",
                     "mitigating_factors": [],
                     "risk_factors": ["Analysis error occurred"],
                     "conditions_if_approved": [],
