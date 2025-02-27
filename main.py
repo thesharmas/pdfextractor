@@ -1,31 +1,22 @@
-from flask import Flask, request, jsonify, Response, render_template, url_for, send_from_directory, stream_with_context
+from flask import Flask, request, jsonify, Response, render_template,stream_with_context
 import os
-from dotenv import load_dotenv
-import google.generativeai as genai
 import traceback
-from io import BytesIO
-from typing import List, Tuple
-from langchain_core.tools import tool
-from langchain_anthropic import ChatAnthropic
-from langchain_core.messages import HumanMessage, AIMessage
 from app.services.content_service import ContentService
 from typing import List, Dict, Any, Tuple
 import logging
-from pydantic import BaseModel
 from app.services.content_service import ContentService
 from app.tools.analysis_tools import  check_nsf, set_llm,check_statement_continuity,extract_daily_balances,extract_monthly_closing_balances,analyze_credit_decision_term_loan,analyze_monthly_financials, analyze_credit_decision_accounts_payable
 from app.services.llm_factory import LLMFactory
-from app.config import Config, LLMProvider, ModelType
+from app.config import  LLMProvider, ModelType
 import json
 import uuid
 from werkzeug.utils import secure_filename
-import shutil
 from queue import Queue
 import time
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,  
+    level=logging.CRITICAL,  
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 
@@ -40,12 +31,6 @@ content_service = ContentService()
 # Create a queue for status messages
 status_queue = Queue()
 
-def get_api_key():
-    api_key = os.getenv('ANTHROPIC_API_KEY')
-    return api_key
-def get_gemini_api_key():
-    api_key = os.getenv('GOOGLE_API_KEY')
-    return api_key
 
 # Create upload directory if it doesn't exist
 UPLOAD_FOLDER = 'uploads'
@@ -128,13 +113,7 @@ def underwrite():
             analysis_llm = LLMFactory.create_llm()
         
         set_llm(analysis_llm)
-        analysis_llm.set_tools([
-            extract_daily_balances, 
-            check_nsf, 
-            check_statement_continuity,
-            extract_monthly_closing_balances,
-            analyze_monthly_financials
-        ])
+    
         send_status("llm_setup", "Complete", "LLM initialized successfully")
 
         # Process and add PDFs

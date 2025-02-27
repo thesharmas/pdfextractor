@@ -489,22 +489,22 @@ function displayResults(response) {
                     <div class="flex items-center justify-between mb-6">
                         <h2 class="text-xl font-bold text-gray-900">Term Loan</h2>
                         <span class="px-4 py-2 rounded-full text-sm font-semibold ${
-                            termLoanRec.approval_decision 
+                            termLoanRec?.approval_decision 
                             ? 'bg-green-100 text-green-800 border border-green-200' 
                             : 'bg-red-100 text-red-800 border border-red-200'
                         }">
-                            ${termLoanRec.approval_decision ? 'Approved' : 'Not Approved'}
+                            ${termLoanRec?.approval_decision ? 'Approved' : 'Not Approved'}
                         </span>
                     </div>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                         <div class="p-4 bg-gray-50 rounded-lg">
                             <h3 class="font-semibold mb-2">Maximum Loan Amount</h3>
-                            <p class="text-2xl font-bold">$${formatNumber(termLoanRec.max_loan_amount)}</p>
+                            <p class="text-2xl font-bold">$${formatNumber(termLoanRec?.max_loan_amount)}</p>
                         </div>
                         <div class="p-4 bg-gray-50 rounded-lg">
                             <h3 class="font-semibold mb-2">Monthly Payment</h3>
-                            <p class="text-2xl font-bold">$${formatNumber(termLoanRec.max_monthly_payment_amount)}</p>
+                            <p class="text-2xl font-bold">$${formatNumber(termLoanRec?.max_monthly_payment_amount)}</p>
                         </div>
                     </div>
                 </div>
@@ -514,22 +514,22 @@ function displayResults(response) {
                     <div class="flex items-center justify-between mb-6">
                         <h2 class="text-xl font-bold text-gray-900">Accounts Payable Financing</h2>
                         <span class="px-4 py-2 rounded-full text-sm font-semibold ${
-                            accountsPayableRec.approval_decision 
+                            accountsPayableRec?.approval_decision 
                             ? 'bg-green-100 text-green-800 border border-green-200' 
                             : 'bg-red-100 text-red-800 border border-red-200'
                         }">
-                            ${accountsPayableRec.approval_decision ? 'Approved' : 'Not Approved'}
+                            ${accountsPayableRec?.approval_decision ? 'Approved' : 'Not Approved'}
                         </span>
                     </div>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                         <div class="p-4 bg-gray-50 rounded-lg">
                             <h3 class="font-semibold mb-2">Maximum Financing Amount</h3>
-                            <p class="text-2xl font-bold">$${formatNumber(accountsPayableRec.max_loan_amount)}</p>
+                            <p class="text-2xl font-bold">$${formatNumber(accountsPayableRec?.max_loan_amount)}</p>
                         </div>
                         <div class="p-4 bg-gray-50 rounded-lg">
                             <h3 class="font-semibold mb-2">Maximum Draw Amount</h3>
-                            <p class="text-2xl font-bold">$${formatNumber(accountsPayableRec.max_monthly_payment_amount)}</p>
+                            <p class="text-2xl font-bold">$${formatNumber(accountsPayableRec?.max_monthly_payment_amount)}</p>
                         </div>
                     </div>
                 </div>
@@ -590,11 +590,15 @@ function safeAccess(obj, path, defaultValue = null) {
 
 // Helper function to format numbers
 function formatNumber(num) {
-    return num ? num.toLocaleString('en-US', {
+    if (num === undefined || num === null) {
+        return '0.00';
+    }
+    return num.toLocaleString('en-US', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
-    }) : '0.00';
+    });
 }
+
 
 // Tab initialization function
 function initializeTabs() {
@@ -625,10 +629,8 @@ function initializeTabs() {
     }
 }
 
-// Helper function to format numbers with commas
-function formatNumber(num) {
-    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-}
+
+
 
 // Add this CSS to your HTML file or update the existing loading container styles
 document.addEventListener('DOMContentLoaded', function() {

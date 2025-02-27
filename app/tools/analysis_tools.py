@@ -1,16 +1,8 @@
 import logging
 from typing import List, Dict, Tuple, Any
-from langchain_core.messages import HumanMessage
-from langchain_core.tools import tool
-from app.services.llm_factory import LLMFactory
 import json
-from langchain_core.pydantic_v1 import BaseModel, Field
-import time
 import traceback
-import re
-from datetime import datetime, timedelta
-from app.config import LLMProvider
-
+from app.services.llm_factory import LLMFactory
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +20,7 @@ def set_llm(llm: Any) -> None:
 
 
 
-@tool
+
 def check_nsf(input_text: str) -> str:
     """Check for NSF (Non-Sufficient Funds) fees and incidents. Returns JSON response."""
     prompt = """You are a JSON-only response bot. Analyze ALL bank statements for NSF (Non-Sufficient Funds) fees across the ENTIRE date range. Do not consider any fees that are not NSF fees (like overdraft fees).
@@ -121,7 +113,7 @@ IMPORTANT:
             "incident_count": 0
         })
 
-@tool
+
 def check_statement_continuity(input_text: str) -> str:
     """
     Check if bank statements are contiguous (sequential months with no gaps).
@@ -235,7 +227,7 @@ def check_statement_continuity(input_text: str) -> str:
             }
         })
 
-@tool
+
 def extract_daily_balances(input_text: str) -> str:
     """Extract or calculate daily balances from bank statements. Returns JSON response."""
     
@@ -340,7 +332,7 @@ def extract_daily_balances(input_text: str) -> str:
         logger.error(f"Full traceback:\n{traceback.format_exc()}")
         return json.dumps({"daily_balances": []})
 
-@tool
+
 def analyze_monthly_financials(input_str: str = "None") -> str:
     """Analyzes monthly expenses and revenues from bank statements, providing statistical analysis."""
     try:
@@ -444,7 +436,7 @@ def analyze_monthly_financials(input_str: str = "None") -> str:
             "details": str(e)
         })
 
-@tool
+
 def extract_monthly_closing_balances(input_str: str = "None") -> str:
     """Extract closing balances for each month from bank statements."""
     try:
@@ -582,7 +574,7 @@ def extract_monthly_closing_balances(input_str: str = "None") -> str:
             "details": str(e)
         })
 
-@tool
+
 def analyze_credit_decision_term_loan(debug=False):
     """Analyzes financial data to make a credit decision for a term loan. Returns JSON response."""
     try:
@@ -847,7 +839,7 @@ Return ONLY a valid JSON object in this exact format, with no additional text:
             }
         }
 
-@tool
+
 def analyze_credit_decision_accounts_payable(debug=False):
     """Analyzes financial data to make a credit decision for accounts payable financing. Returns JSON response."""
     try:
